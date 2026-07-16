@@ -9,11 +9,30 @@ namespace FlooxOC
         [STAThread]
         static void Main()
         {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
+            // ===== ПРОВЕРКА АРГУМЕНТОВ =====
+            string[] args = Environment.GetCommandLineArgs();
+
+            // Если передан аргумент /install, запускаем установщик
+            if (args.Length > 1 && args[1].ToLower() == "/install")
+            {
+                try
+                {
+                    Application.Run(new InstallerApp());
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка установщика: {ex.Message}", "Критическая ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                return;
+            }
+
+            // ===== ОСНОВНОЙ ЗАПУСК ОС =====
             try
             {
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
-
                 // === ПРОВЕРКА АКТИВАЦИИ ===
                 if (AccountManager.IsFirstRun())
                 {
