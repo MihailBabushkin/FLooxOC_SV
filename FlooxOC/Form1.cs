@@ -33,41 +33,162 @@ namespace FlooxOC
         private void InitializeTaskbar()
         {
             taskbar = new Panel();
-            taskbar.Height = 40;
+            taskbar.Height = 55;  // ← Немного выше для информации
             taskbar.Dock = DockStyle.Bottom;
-            taskbar.BackColor = Color.FromArgb(192, 192, 192);
-            taskbar.BorderStyle = BorderStyle.Fixed3D;
+            taskbar.BackColor = Color.FromArgb(192, 192, 192);  // ← Классический серый Win95
+            taskbar.BorderStyle = BorderStyle.Fixed3D;  // ← 3D рамка как в Win95
             taskbar.Name = "taskbar";
+            taskbar.Padding = new Padding(3, 0, 3, 0);
 
+            // ===== КНОПКА ПУСК (Win95 стиль) =====
             Button startBtn = new Button();
             startBtn.Text = " Пуск ";
-            startBtn.Location = new Point(5, 5);
-            startBtn.Size = new Size(70, 30);
+            startBtn.Location = new Point(4, 6);
+            startBtn.Size = new Size(75, 40);
             startBtn.FlatStyle = FlatStyle.Flat;
+            startBtn.FlatAppearance.BorderSize = 1;
+            startBtn.FlatAppearance.BorderColor = Color.FromArgb(128, 128, 128);
             startBtn.BackColor = Color.FromArgb(192, 192, 192);
+            startBtn.ForeColor = Color.Black;
+            startBtn.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            startBtn.Cursor = Cursors.Hand;
+            startBtn.TextAlign = ContentAlignment.MiddleCenter;
+
+            startBtn.MouseEnter += (s, e) =>
+            {
+                startBtn.BackColor = Color.FromArgb(212, 208, 200);
+                startBtn.FlatAppearance.BorderColor = Color.White;
+            };
+            startBtn.MouseLeave += (s, e) =>
+            {
+                startBtn.BackColor = Color.FromArgb(192, 192, 192);
+                startBtn.FlatAppearance.BorderColor = Color.FromArgb(128, 128, 128);
+            };
             startBtn.Click += (s, e) => ShowStartMenu();
             taskbar.Controls.Add(startBtn);
 
+            // ===== ПАНЕЛЬ ЗАДАЧ =====
+            Panel taskButtonsPanel = new Panel();
+            taskButtonsPanel.Location = new Point(84, 6);
+            taskButtonsPanel.Size = new Size(taskbar.Width - 240, 40);
+            taskButtonsPanel.BackColor = Color.Transparent;
+            taskButtonsPanel.Name = "taskButtonsPanel";
+            taskbar.Controls.Add(taskButtonsPanel);
+
+            // ===== ПАНЕЛЬ ИНФОРМАЦИИ + ЧАСЫ (Win95 стиль) =====
+            Panel infoPanel = new Panel();
+            infoPanel.Size = new Size(140, 40);
+            infoPanel.Location = new Point(taskbar.Width - 145, 6);
+            infoPanel.BackColor = Color.FromArgb(192, 192, 192);
+            infoPanel.BorderStyle = BorderStyle.Fixed3D;
+            infoPanel.Cursor = Cursors.Hand;
+
+            // ДАТА (маленькая, над временем)
+            Label dateLabel = new Label();
+            dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
+            dateLabel.Font = new Font("Segoe UI", 7);
+            dateLabel.ForeColor = Color.Black;
+            dateLabel.Location = new Point(2, 0);
+            dateLabel.Size = new Size(134, 14);
+            dateLabel.TextAlign = ContentAlignment.MiddleCenter;
+            infoPanel.Controls.Add(dateLabel);
+
+            // ВРЕМЯ (крупно)
             clockLabel = new Label();
             clockLabel.Text = DateTime.Now.ToString("HH:mm");
-            clockLabel.Location = new Point(taskbar.Width - 80, 5);
-            clockLabel.Size = new Size(70, 30);
+            clockLabel.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            clockLabel.ForeColor = Color.Black;
+            clockLabel.Location = new Point(2, 14);
+            clockLabel.Size = new Size(134, 22);
             clockLabel.TextAlign = ContentAlignment.MiddleCenter;
-            clockLabel.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             clockLabel.Name = "clockLabel";
-            taskbar.Controls.Add(clockLabel);
+            infoPanel.Controls.Add(clockLabel);
 
+            // Клик по панели информации
+            infoPanel.Click += (s, e) => ShowDateTimeInfo();
+            dateLabel.Click += (s, e) => ShowDateTimeInfo();
+            clockLabel.Click += (s, e) => ShowDateTimeInfo();
+
+            taskbar.Controls.Add(infoPanel);
+
+            // ===== ТАЙМЕР =====
             clockTimer = new Timer();
             clockTimer.Interval = 1000;
             clockTimer.Tick += (s, e) =>
             {
                 if (clockLabel != null)
+                {
                     clockLabel.Text = DateTime.Now.ToString("HH:mm");
+                    dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
+                }
             };
             clockTimer.Start();
 
             this.Controls.Add(taskbar);
+
+            this.Resize += (s, e) =>
+            {
+                if (taskbar != null)
+                {
+                    infoPanel.Location = new Point(taskbar.Width - 145, 6);
+                    taskButtonsPanel.Width = taskbar.Width - 240;
+                }
+            };
         }
+
+
+        private void ShowDateTimeInfo()
+        {
+            try
+            {
+                string uptime = GetSystemUptime();
+
+                MessageBox.Show(
+                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
+                    $"📆 {GetDayOfWeek()}\n" +
+                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}\n" +
+                    $"\n" +
+                    $"🕐 Время работы: {uptime}\n" +
+                    $"💻 {Environment.MachineName}",
+                    "Дата и время",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch
+            {
+                MessageBox.Show(
+                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
+                    $"📆 {GetDayOfWeek()}\n" +
+                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}",
+                    "Дата и время",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+
+
+        private string GetDayOfWeek()
+        {
+            string[] days = { "Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота" };
+            return days[(int)DateTime.Now.DayOfWeek];
+        }
+
+
+        private string GetSystemUptime()
+        {
+            try
+            {
+                TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
+                return $"{uptime.Days}д {uptime.Hours}ч {uptime.Minutes}м";
+            }
+            catch
+            {
+                return "Недоступно";
+            }
+        }
+
+
+        // ===== ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) =====
 
         private void InitializeDesktop()
         {
@@ -79,38 +200,33 @@ namespace FlooxOC
 
             int y = 20;
 
-            // === КАЛЬКУЛЯТОР ===
             DesktopIcon calcIcon = new DesktopIcon("Калькулятор", CreateIcon("🧮"), "system");
             calcIcon.Location = new Point(20, y);
-            calcIcon.IconClick += (s, e) => OpenCalculator();
+            calcIcon.Click += (s, e) => OpenCalculator();
             desktopPanel.Controls.Add(calcIcon);
             y += 85;
 
-            // === БЛОКНОТ ===
             DesktopIcon notepadIcon = new DesktopIcon("Блокнот", CreateIcon("📝"), "system");
             notepadIcon.Location = new Point(20, y);
-            notepadIcon.IconClick += (s, e) => OpenNotepad();
+            notepadIcon.Click += (s, e) => OpenNotepad();
             desktopPanel.Controls.Add(notepadIcon);
             y += 85;
 
-            // === БРАУЗЕР ===
             DesktopIcon browserIcon = new DesktopIcon("Браузер", CreateIcon("🌐"), "system");
             browserIcon.Location = new Point(20, y);
-            browserIcon.IconClick += (s, e) => OpenBrowser();
+            browserIcon.Click += (s, e) => OpenBrowser();
             desktopPanel.Controls.Add(browserIcon);
             y += 85;
 
-            // === НАСТРОЙКИ ===
             DesktopIcon settingsIcon = new DesktopIcon("Настройки", CreateIcon("⚙️"), "system");
             settingsIcon.Location = new Point(20, y);
-            settingsIcon.IconClick += (s, e) => OpenSettings();
+            settingsIcon.Click += (s, e) => OpenSettings();
             desktopPanel.Controls.Add(settingsIcon);
             y += 85;
 
-            // === МУЗЫКА ===
             DesktopIcon musicIcon = new DesktopIcon("Музыка", CreateIcon("🎵"), "system");
             musicIcon.Location = new Point(20, y);
-            musicIcon.IconClick += (s, e) => OpenMusicPlayer();
+            musicIcon.Click += (s, e) => OpenMusicPlayer();
             desktopPanel.Controls.Add(musicIcon);
         }
 
@@ -306,7 +422,7 @@ namespace FlooxOC
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
-                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Все файлы (*.*)|*.*";
+                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Ярлыки (*.lnk)|*.lnk|Все файлы (*.*)|*.*";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     try
@@ -341,14 +457,14 @@ namespace FlooxOC
             appIcon.AppId = app.Id;
             appIcon.Location = new Point(20, GetNextIconY());
 
-            appIcon.IconClick += (s, e) =>
+            appIcon.Click += (s, e) =>
             {
                 var foundApp = AppManager.GetApps().Find(a => a.Id == appIcon.AppId);
                 if (foundApp != null)
                     AppManager.LaunchApp(foundApp);
             };
 
-            appIcon.IconDelete += (s, e) =>
+            appIcon.OnDelete += (s, e) =>
             {
                 DialogResult result = MessageBox.Show($"Удалить приложение '{app.Name}'?", "Подтверждение",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -367,7 +483,7 @@ namespace FlooxOC
             using (Form dialog = new Form())
             {
                 dialog.Text = "Добавить закладку";
-                dialog.Size = new Size(400, 120);
+                dialog.Size = new Size(400, 150);
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
@@ -442,7 +558,11 @@ namespace FlooxOC
             Image icon = BookmarkManager.LoadBookmarkIcon(bookmark);
             if (icon == null)
             {
-                icon = BookmarkManager.GenerateFaviconFromUrl(bookmark.Url);
+                try
+                {
+                    icon = BookmarkManager.GenerateFaviconFromUrl(bookmark.Url);
+                }
+                catch { icon = null; }
                 if (icon == null)
                     icon = CreateIcon("🌐");
             }
@@ -451,7 +571,7 @@ namespace FlooxOC
             bookmarkIcon.AppId = bookmark.Id;
             bookmarkIcon.Location = new Point(120, GetNextIconY());
 
-            bookmarkIcon.IconClick += (s, e) =>
+            bookmarkIcon.Click += (s, e) =>
             {
                 var found = BookmarkManager.GetBookmarks().Find(b => b.Id == bookmarkIcon.AppId);
                 if (found != null)
@@ -460,7 +580,7 @@ namespace FlooxOC
                 }
             };
 
-            bookmarkIcon.IconDelete += (s, e) =>
+            bookmarkIcon.OnDelete += (s, e) =>
             {
                 DialogResult result = MessageBox.Show($"Удалить закладку '{bookmark.Name}'?", "Подтверждение",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -473,22 +593,7 @@ namespace FlooxOC
 
             desktopPanel.Controls.Add(bookmarkIcon);
         }
-
-        public void OpenBookmark(WebBookmark bookmark)
-        {
-            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
-            ModernBrowserApp browser = new ModernBrowserApp();
-            window.ContentControl = browser;
-            window.Size = new Size(1000, 700);
-            window.MinimumSize = new Size(600, 400);
-            this.Controls.Add(window);
-            window.BringToFront();
-
-            browser.NavigateTo(bookmark.Url);
-
-            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
-        }
-
+        
         private void RefreshDesktop()
         {
             desktopPanel.Refresh();
@@ -604,14 +709,12 @@ namespace FlooxOC
                     }
                 };
 
-                Button cancelBtn = new Button
-                {
-                    Text = "Отмена",
-                    Location = new Point(120, 10),
-                    Size = new Size(100, 30),
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand
-                };
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(120, 10);
+                cancelBtn.Size = new Size(100, 30);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.Cursor = Cursors.Hand;
                 cancelBtn.Click += (s, e) => dialog.Close();
 
                 buttonPanel.Controls.Add(restoreBtn);
@@ -694,14 +797,12 @@ namespace FlooxOC
                     }
                 };
 
-                Button cancelBtn = new Button
-                {
-                    Text = "Отмена",
-                    Location = new Point(120, 10),
-                    Size = new Size(100, 30),
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand
-                };
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(120, 10);
+                cancelBtn.Size = new Size(100, 30);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.Cursor = Cursors.Hand;
                 cancelBtn.Click += (s, e) => dialog.Close();
 
                 buttonPanel.Controls.Add(deleteBtn);
@@ -723,55 +824,143 @@ namespace FlooxOC
             }
         }
 
-        // ====== МЕТОД ДЛЯ ДОБАВЛЕНИЯ КНОПОК НА ПАНЕЛЬ ЗАДАЧ ======
         private void AddTaskbarButton(string text, CustomWindow window)
         {
-            Button taskBtn = new Button
+            Panel taskButtonsPanel = null;
+            foreach (Control ctrl in taskbar.Controls)
             {
-                Text = text,
-                Font = new Font("Segoe UI", 9),
-                BackColor = Color.FromArgb(192, 192, 192),
-                FlatStyle = FlatStyle.Flat,
-                Size = new Size(120, 26),
-                Margin = new Padding(2),
-                Tag = window
-            };
-            taskBtn.FlatAppearance.BorderSize = 1;
-            taskBtn.Click += (sender, args) =>
-            {
-                window.RestoreWindow();
-                if (taskbar.Controls.Contains(taskBtn))
-                    taskbar.Controls.Remove(taskBtn);
-            };
-
-            // Находим позицию после кнопки "Пуск"
-            int insertIndex = 1; // По умолчанию после первого элемента
-
-            // Сначала добавляем кнопку
-            taskbar.Controls.Add(taskBtn);
-
-            // Затем перемещаем её после кнопки "Пуск"
-            for (int i = 0; i < taskbar.Controls.Count; i++)
-            {
-                if (taskbar.Controls[i] is Button btn && btn.Text == " Пуск ")
+                if (ctrl is Panel panel && panel.Name == "taskButtonsPanel")
                 {
-                    insertIndex = i + 1;
+                    taskButtonsPanel = panel;
                     break;
                 }
             }
 
-            // Перемещаем кнопку на нужную позицию
-            taskbar.Controls.SetChildIndex(taskBtn, insertIndex);
+            if (taskButtonsPanel == null) return;
 
-            // Обновляем позицию часов
-            if (clockLabel != null)
+            foreach (Control ctrl in taskButtonsPanel.Controls)
             {
-                clockLabel.BringToFront();
-                clockLabel.Location = new Point(taskbar.Width - 80, 5);
+                if (ctrl is Button btn && btn.Tag == window)
+                {
+                    return;
+                }
+            }
+
+            int xPosition = 0;
+            foreach (Control ctrl in taskButtonsPanel.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    xPosition += btn.Width + btn.Margin.Left + btn.Margin.Right;
+                }
+            }
+
+            Button taskBtn = new Button();
+            taskBtn.Text = text;
+            taskBtn.Font = new Font("Segoe UI", 8);
+            taskBtn.BackColor = Color.FromArgb(192, 192, 192);
+            taskBtn.ForeColor = Color.Black;
+            taskBtn.FlatStyle = FlatStyle.Flat;
+            taskBtn.FlatAppearance.BorderSize = 1;
+            taskBtn.FlatAppearance.BorderColor = Color.FromArgb(128, 128, 128);
+            taskBtn.Size = new Size(120, 30);
+            taskBtn.Margin = new Padding(2);
+            taskBtn.Location = new Point(xPosition, 4);
+            taskBtn.Tag = window;
+            taskBtn.Cursor = Cursors.Hand;
+            taskBtn.TextAlign = ContentAlignment.MiddleCenter;
+
+            taskBtn.MouseEnter += (s, e) =>
+            {
+                taskBtn.BackColor = Color.FromArgb(212, 208, 200);
+            };
+            taskBtn.MouseLeave += (s, e) =>
+            {
+                taskBtn.BackColor = Color.FromArgb(192, 192, 192);
+            };
+
+            taskBtn.Click += (sender, args) =>
+            {
+                window.RestoreWindow();
+                taskButtonsPanel.Controls.Remove(taskBtn);
+                UpdateTaskButtonsPosition();
+            };
+
+            taskButtonsPanel.Controls.Add(taskBtn);
+
+            foreach (Control ctrl in taskbar.Controls)
+            {
+                if (ctrl is Panel infoPanel && infoPanel.Size.Width == 140)
+                {
+                    infoPanel.BringToFront();
+                    break;
+                }
             }
         }
 
-        // ====== ПРИЛОЖЕНИЯ ======
+
+        // Добавь этот метод для обновления позиций кнопок
+        private void UpdateTaskButtonsPosition()
+        {
+            Panel taskButtonsPanel = null;
+            foreach (Control ctrl in taskbar.Controls)
+            {
+                if (ctrl is Panel panel && panel.Name == "taskButtonsPanel")
+                {
+                    taskButtonsPanel = panel;
+                    break;
+                }
+            }
+
+            if (taskButtonsPanel == null) return;
+
+            int xPosition = 0;
+            foreach (Control ctrl in taskButtonsPanel.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    btn.Location = new Point(xPosition, 4);
+                    xPosition += btn.Width + btn.Margin.Left + btn.Margin.Right;
+                }
+            }
+        }
+
+
+
+        // Добавь метод для удаления кнопки
+        private void RemoveTaskbarButton(CustomWindow window)
+        {
+            Panel taskButtonsPanel = null;
+            foreach (Control ctrl in taskbar.Controls)
+            {
+                if (ctrl is Panel panel && panel.Name == "taskButtonsPanel")
+                {
+                    taskButtonsPanel = panel;
+                    break;
+                }
+            }
+
+            if (taskButtonsPanel == null) return;
+
+            List<Control> toRemove = new List<Control>();
+            foreach (Control ctrl in taskButtonsPanel.Controls)
+            {
+                if (ctrl is Button btn && btn.Tag == window)
+                {
+                    toRemove.Add(ctrl);
+                }
+            }
+
+            foreach (var ctrl in toRemove)
+            {
+                taskButtonsPanel.Controls.Remove(ctrl);
+            }
+
+            UpdateTaskButtonsPosition();
+        }
+
+
+
         private void OpenCalculator()
         {
             CustomWindow window = new CustomWindow("Калькулятор");
@@ -783,6 +972,8 @@ namespace FlooxOC
             this.Controls.Add(window);
             window.BringToFront();
 
+            // При закрытии окна удаляем кнопку с панели задач
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Калькулятор", window);
         }
 
@@ -796,6 +987,7 @@ namespace FlooxOC
             this.Controls.Add(window);
             window.BringToFront();
 
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Блокнот", window);
         }
 
@@ -809,6 +1001,7 @@ namespace FlooxOC
             this.Controls.Add(window);
             window.BringToFront();
 
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Браузер", window);
         }
 
@@ -822,6 +1015,7 @@ namespace FlooxOC
             this.Controls.Add(window);
             window.BringToFront();
 
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Настройки", window);
         }
 
@@ -830,15 +1024,31 @@ namespace FlooxOC
             CustomWindow window = new CustomWindow("🎵 Музыкальный плеер");
             MusicPlayerApp player = new MusicPlayerApp();
             window.ContentControl = player;
-            window.Size = new Size(450, 550);
-            window.MinimumSize = new Size(400, 400);
+            window.Size = new Size(700, 600);
+            window.MinimumSize = new Size(600, 500);
             this.Controls.Add(window);
             window.BringToFront();
 
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Музыка", window);
         }
 
-        // ====== МЕТОДЫ ДЛЯ НАСТРОЕК ======
+        public void OpenBookmark(WebBookmark bookmark)
+        {
+            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
+            ModernBrowserApp browser = new ModernBrowserApp();
+            window.ContentControl = browser;
+            window.Size = new Size(1000, 700);
+            window.MinimumSize = new Size(600, 400);
+            this.Controls.Add(window);
+            window.BringToFront();
+
+            browser.NavigateTo(bookmark.Url);
+
+            window.Closed += (s, e) => RemoveTaskbarButton(window);
+            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
+        }
+
         private void LoadWallpaperColor()
         {
             try
@@ -927,7 +1137,7 @@ namespace FlooxOC
             base.OnResize(e);
             if (taskbar != null && clockLabel != null)
             {
-                clockLabel.Location = new Point(taskbar.Width - 80, 5);
+                // Часы обновляются автоматически через таймер
             }
         }
 

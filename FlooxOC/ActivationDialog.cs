@@ -19,7 +19,7 @@ namespace FlooxOC
 
         public ActivationDialog()
         {
-            this.Text = "Активация MyOS 95";
+            this.Text = "Активация FlooxOC. Home Version";
             this.Size = new Size(450, 250);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -46,7 +46,7 @@ namespace FlooxOC
             // Информация
             lblInfo = new Label();
             lblInfo.Text = "Введите код активации, полученный при покупке.\n" +
-                          "Для тестирования используйте: DEMO-2024";
+                          "Для тестирования используйте: DEMO-2026";
             lblInfo.Font = new Font("Segoe UI", 9);
             lblInfo.Location = new Point(20, y);
             lblInfo.Size = new Size(400, 40);

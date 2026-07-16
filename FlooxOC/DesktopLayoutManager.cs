@@ -12,7 +12,7 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyOS95", "DesktopLayouts"
+            "Floox OC. Home Version", "DesktopLayouts"
         );
         private static string CurrentLayoutFile = Path.Combine(DataPath, "current_layout.json");
         private static string LayoutsListFile = Path.Combine(DataPath, "layouts.json");
@@ -267,8 +267,8 @@ namespace FlooxOC
                     icon.AppId = iconLayout.Id;
                     icon.SetPosition(new Point(iconLayout.X, iconLayout.Y));
 
-                    // Исправлено: IconClick вместо IconDoubleClick
-                    icon.IconClick += (s, e) =>
+                    // === ОТКРЫТИЕ ПО КЛИКУ ===
+                    icon.Click += (s, e) =>
                     {
                         if (icon.Type == "bookmark")
                         {
@@ -288,7 +288,8 @@ namespace FlooxOC
                         }
                     };
 
-                    icon.IconDelete += (s, e) =>
+                    // === УДАЛЕНИЕ ===
+                    icon.OnDelete += (s, e) =>
                     {
                         DialogResult result = MessageBox.Show($"Удалить '{icon.GetText()}'?", "Подтверждение",
                             MessageBoxButtons.YesNo, MessageBoxIcon.Question);

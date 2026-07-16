@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -13,6 +14,7 @@ namespace FlooxOC
         private Panel toolbar;
         private Label statusLabel;
         private bool isInitialized = false;
+        private string pendingUrl = "";
 
         public event EventHandler UrlChanged;
 
@@ -31,17 +33,42 @@ namespace FlooxOC
             if (string.IsNullOrEmpty(url))
                 return;
 
-            if (!url.StartsWith("http://") && !url.StartsWith("https://") && !url.Contains("."))
+            url = url.Trim();
+
+            // Проверяем, является ли URL IP-адресом или localhost
+            bool isIpAddress = Regex.IsMatch(url, @"^(\d+\.\d+\.\d+\.\d+)(:\d+)?$");
+            bool isLocalhost = url.StartsWith("localhost") || url.StartsWith("127.0.0.1");
+
+            // Если это IP-адрес или localhost - добавляем http://
+            if (isIpAddress || isLocalhost)
             {
-                url = "https://www.google.com/search?q=" + Uri.EscapeDataString(url);
+                if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+                {
+                    url = "http://" + url;
+                }
             }
             else if (!url.StartsWith("http://") && !url.StartsWith("https://"))
             {
-                url = "https://" + url;
+                // Если это домен (содержит точку) - добавляем https://
+                if (url.Contains("."))
+                {
+                    url = "https://" + url;
+                }
+                else
+                {
+                    // Поисковый запрос
+                    url = "https://www.google.com/search?q=" + Uri.EscapeDataString(url);
+                }
             }
 
             urlBox.Text = url;
-            Navigate();
+            pendingUrl = url;
+
+            // Если браузер уже инициализирован - сразу переходим
+            if (isInitialized && webView != null && webView.CoreWebView2 != null)
+            {
+                Navigate();
+            }
         }
 
         private void InitializeToolbar()
@@ -163,7 +190,21 @@ namespace FlooxOC
 
             try
             {
-                await webView.EnsureCoreWebView2Async(null);
+                // Создаём папку для данных браузера
+                string userDataFolder = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MyOS95", "WebView2Data");
+                System.IO.Directory.CreateDirectory(userDataFolder);
+
+                var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(
+                    userDataFolder: userDataFolder,
+                    options: new Microsoft.Web.WebView2.Core.CoreWebView2EnvironmentOptions
+                    {
+                        // Разрешаем HTTP и IP адреса
+                        AdditionalBrowserArguments = "--ignore-certificate-errors --allow-insecure-localhost"
+                    });
+
+                await webView.EnsureCoreWebView2Async(env);
                 isInitialized = true;
 
                 webView.CoreWebView2.NavigationStarting += (s, e) =>
@@ -174,13 +215,24 @@ namespace FlooxOC
                 webView.CoreWebView2.NavigationCompleted += (s, e) =>
                 {
                     statusLabel.Text = "Готово";
-                    urlBox.Text = webView.CoreWebView2.Source;
-                    backButton.Enabled = webView.CanGoBack;
-                    forwardButton.Enabled = webView.CanGoForward;
-                    UrlChanged?.Invoke(this, EventArgs.Empty);
+                    if (webView.CoreWebView2 != null && !string.IsNullOrEmpty(webView.CoreWebView2.Source))
+                    {
+                        urlBox.Text = webView.CoreWebView2.Source;
+                        backButton.Enabled = webView.CanGoBack;
+                        forwardButton.Enabled = webView.CanGoForward;
+                        UrlChanged?.Invoke(this, EventArgs.Empty);
+                    }
                 };
 
-                webView.CoreWebView2.Navigate("https://www.google.com");
+                // Загружаем стартовую страницу
+                if (!string.IsNullOrEmpty(pendingUrl))
+                {
+                    webView.CoreWebView2.Navigate(pendingUrl);
+                }
+                else
+                {
+                    webView.CoreWebView2.Navigate("https://www.google.com");
+                }
             }
             catch (Exception ex)
             {
@@ -202,13 +254,27 @@ namespace FlooxOC
             if (string.IsNullOrEmpty(url))
                 return;
 
-            if (!url.StartsWith("http://") && !url.StartsWith("https://") && !url.Contains("."))
+            // Проверяем, является ли URL IP-адресом или localhost
+            bool isIpAddress = Regex.IsMatch(url, @"^(\d+\.\d+\.\d+\.\d+)(:\d+)?$");
+            bool isLocalhost = url.StartsWith("localhost") || url.StartsWith("127.0.0.1");
+
+            if (isIpAddress || isLocalhost)
             {
-                url = "https://www.google.com/search?q=" + Uri.EscapeDataString(url);
+                if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+                {
+                    url = "http://" + url;
+                }
             }
             else if (!url.StartsWith("http://") && !url.StartsWith("https://"))
             {
-                url = "https://" + url;
+                if (url.Contains("."))
+                {
+                    url = "https://" + url;
+                }
+                else
+                {
+                    url = "https://www.google.com/search?q=" + Uri.EscapeDataString(url);
+                }
             }
 
             try
@@ -220,6 +286,12 @@ namespace FlooxOC
                 MessageBox.Show($"Ошибка навигации: {ex.Message}", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        // Метод для обновления закладок из Form1
+        public void OpenUrl(string url)
+        {
+            NavigateTo(url);
         }
     }
 }

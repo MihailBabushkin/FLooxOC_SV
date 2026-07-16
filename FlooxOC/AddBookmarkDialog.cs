@@ -160,8 +160,19 @@ namespace FlooxOC
                 btnGetFavicon.Enabled = false;
                 btnGetFavicon.Text = "Загрузка...";
 
-                var icon = await System.Threading.Tasks.Task.Run(() =>
-                    BookmarkManager.GenerateFaviconFromUrl(url));
+                // Добавляем обработку ошибок
+                Image icon = null;
+                try
+                {
+                    icon = await System.Threading.Tasks.Task.Run(() =>
+                        BookmarkManager.GenerateFaviconFromUrl(url));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка загрузки favicon: {ex.Message}", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
                 if (icon != null)
                 {
@@ -170,15 +181,20 @@ namespace FlooxOC
                     icon.Save(tempPath, System.Drawing.Imaging.ImageFormat.Png);
                     selectedIconPath = tempPath;
                     iconPreview.Image = icon;
+                    MessageBox.Show("Иконка загружена!", "Успех",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Не удалось загрузить иконку с сайта.");
+                    MessageBox.Show("Не удалось загрузить иконку с сайта.\n" +
+                        "Попробуйте выбрать иконку вручную.", "Информация",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка загрузки favicon: {ex.Message}");
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

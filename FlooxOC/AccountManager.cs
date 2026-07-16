@@ -14,12 +14,11 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyOS95", "Accounts"
+            "Floox Oc. Home Version", "Accounts"
         );
         private static string AccountsFile = Path.Combine(DataPath, "accounts.json");
         private static string SettingsFile = Path.Combine(DataPath, "settings.json");
 
-        // Сервер для проверки кодов активации (замени на свой)
         private const string ACTIVATION_SERVER = "https://your-server.com/api/activate";
 
         public class AccountData
@@ -31,7 +30,7 @@ namespace FlooxOC
             public DateTime CreatedDate { get; set; }
             public DateTime LastLogin { get; set; }
             public string UserName { get; set; }
-            public string UserAvatar { get; set; } // base64
+            public string UserAvatar { get; set; }
             public Dictionary<string, object> Settings { get; set; } = new Dictionary<string, object>();
         }
 
@@ -42,61 +41,133 @@ namespace FlooxOC
             public string LastUser { get; set; } = "";
             public bool FirstRun { get; set; } = true;
             public string ActivationCode { get; set; } = "";
+            public string MachineId { get; set; } = "";
+            public int MaxLoginAttempts { get; set; } = 3;
         }
 
         private static AppSettings settings = new AppSettings();
         private static AccountData currentUser = null;
+        private static readonly HttpClient httpClient = new HttpClient();
+
+        public static bool RequirePassword
+        {
+            get => settings.RequirePassword;
+            set
+            {
+                settings.RequirePassword = value;
+                SaveSettings();
+            }
+        }
+
+        public static bool AutoLogin
+        {
+            get => settings.AutoLogin;
+            set
+            {
+                settings.AutoLogin = value;
+                SaveSettings();
+            }
+        }
+
+        public static int MaxLoginAttempts
+        {
+            get => settings.MaxLoginAttempts;
+            set
+            {
+                settings.MaxLoginAttempts = value;
+                SaveSettings();
+            }
+        }
 
         static AccountManager()
         {
             Directory.CreateDirectory(DataPath);
             LoadSettings();
+
+            if (string.IsNullOrEmpty(settings.MachineId))
+            {
+                settings.MachineId = GetMachineId();
+                SaveSettings();
+            }
         }
 
-        // ====== АКТИВАЦИЯ ======
+        // ====== УПРОЩЁННЫЙ МЕТОД ПОЛУЧЕНИЯ ID КОМПЬЮТЕРА (БЕЗ System.Management) ======
+        private static string GetMachineId()
+        {
+            try
+            {
+                // Используем имя компьютера и GUID для создания уникального ID
+                string combined = Environment.MachineName + Environment.UserName + Environment.OSVersion.Platform.ToString();
+
+                // Добавляем информацию о дисках (простой способ)
+                try
+                {
+                    foreach (var drive in DriveInfo.GetDrives())
+                    {
+                        if (drive.IsReady)
+                        {
+                            combined += drive.TotalSize.ToString();
+                            break;
+                        }
+                    }
+                }
+                catch { }
+
+                using (SHA256 sha256 = SHA256.Create())
+                {
+                    byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                    return Convert.ToBase64String(hash).Substring(0, 20);
+                }
+            }
+            catch
+            {
+                return Environment.MachineName + "-" + Guid.NewGuid().ToString().Substring(0, 8);
+            }
+        }
+
         public static async Task<bool> ActivateCode(string code)
         {
             try
             {
-                using (HttpClient client = new HttpClient())
+                var data = new
                 {
-                    client.Timeout = TimeSpan.FromSeconds(10);
-                    var data = new { code = code };
-                    string json = JsonSerializer.Serialize(data);
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    code = code,
+                    machine_id = settings.MachineId
+                };
+                string json = JsonSerializer.Serialize(data);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                    HttpResponseMessage response = await client.PostAsync(ACTIVATION_SERVER, content);
+                HttpResponseMessage response = await httpClient.PostAsync(ACTIVATION_SERVER, content);
 
-                    if (response.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode)
+                {
+                    string result = await response.Content.ReadAsStringAsync();
+                    var responseData = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
+
+                    if (responseData != null && responseData.ContainsKey("success") && (bool)responseData["success"])
                     {
-                        string result = await response.Content.ReadAsStringAsync();
-                        var responseData = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
-
-                        if (responseData != null && responseData.ContainsKey("success") && (bool)responseData["success"])
-                        {
-                            settings.ActivationCode = code;
-                            settings.FirstRun = false;
-                            SaveSettings();
-                            return true;
-                        }
+                        settings.ActivationCode = code;
+                        settings.FirstRun = false;
+                        SaveSettings();
+                        return true;
+                    }
+                    else
+                    {
+                        string message = responseData.ContainsKey("message") ? responseData["message"].ToString() : "Неизвестная ошибка";
+                        MessageBox.Show($"❌ {message}", "Ошибка активации",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
                     }
                 }
-
-                // === ЛОКАЛЬНАЯ ПРОВЕРКА (для тестирования) ===
-                // Если сервер недоступен, используем локальную проверку
-                if (ValidateCodeLocally(code))
+                else
                 {
-                    settings.ActivationCode = code;
-                    settings.FirstRun = false;
-                    SaveSettings();
-                    return true;
+                    MessageBox.Show($"❌ Ошибка соединения с сервером! (Код: {response.StatusCode})", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
                 }
-
-                return false;
             }
             catch
             {
-                // При ошибке соединения используем локальную проверку
                 if (ValidateCodeLocally(code))
                 {
                     settings.ActivationCode = code;
@@ -108,7 +179,17 @@ namespace FlooxOC
             }
         }
 
-        // ====== РЕГИСТРАЦИЯ ======
+        public static bool ValidateCodeLocally(string code)
+        {
+            string[] validCodes = { "DEMO-2026", "TEST-1234", "FREE-2024" };
+            foreach (var valid in validCodes)
+            {
+                if (code == valid)
+                    return true;
+            }
+            return false;
+        }
+
         public static bool RegisterUser(string login, string password, string userName = "")
         {
             if (string.IsNullOrEmpty(login) || login.Length < 3)
@@ -118,7 +199,6 @@ namespace FlooxOC
                 return false;
             }
 
-            // Проверяем, существует ли пользователь
             var accounts = LoadAccounts();
             if (accounts.Exists(a => a.Login == login))
             {
@@ -127,7 +207,6 @@ namespace FlooxOC
                 return false;
             }
 
-            // Если пароль включён, проверяем его
             if (settings.RequirePassword)
             {
                 if (string.IsNullOrEmpty(password) || password.Length < 3)
@@ -159,7 +238,6 @@ namespace FlooxOC
             return true;
         }
 
-        // ====== ВХОД ======
         public static bool Login(string login, string password)
         {
             var accounts = LoadAccounts();
@@ -191,13 +269,11 @@ namespace FlooxOC
             return true;
         }
 
-        // ====== ВЫХОД ======
         public static void Logout()
         {
             currentUser = null;
         }
 
-        // ====== ПОЛУЧЕНИЕ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ ======
         public static AccountData GetCurrentUser()
         {
             return currentUser;
@@ -208,7 +284,6 @@ namespace FlooxOC
             return currentUser != null;
         }
 
-        // ====== ПРОВЕРКА ПЕРВОГО ЗАПУСКА ======
         public static bool IsFirstRun()
         {
             return settings.FirstRun;
@@ -217,27 +292,6 @@ namespace FlooxOC
         public static bool IsActivated()
         {
             return !string.IsNullOrEmpty(settings.ActivationCode);
-        }
-
-        // ====== НАСТРОЙКИ ======
-        public static bool RequirePassword
-        {
-            get => settings.RequirePassword;
-            set
-            {
-                settings.RequirePassword = value;
-                SaveSettings();
-            }
-        }
-
-        public static bool AutoLogin
-        {
-            get => settings.AutoLogin;
-            set
-            {
-                settings.AutoLogin = value;
-                SaveSettings();
-            }
         }
 
         public static string GetLastUser()
@@ -260,7 +314,6 @@ namespace FlooxOC
                 currentUser = null;
         }
 
-        // ====== ХЭШИРОВАНИЕ ПАРОЛЯ ======
         public static string HashPassword(string password)
         {
             using (SHA256 sha256 = SHA256.Create())
@@ -270,7 +323,6 @@ namespace FlooxOC
             }
         }
 
-        // ====== ЗАГРУЗКА/СОХРАНЕНИЕ АККАУНТОВ ======
         private static List<AccountData> LoadAccounts()
         {
             if (!File.Exists(AccountsFile))
@@ -301,7 +353,6 @@ namespace FlooxOC
             }
         }
 
-        // ====== ЗАГРУЗКА/СОХРАНЕНИЕ НАСТРОЕК ======
         private static void LoadSettings()
         {
             if (!File.Exists(SettingsFile))
@@ -330,20 +381,6 @@ namespace FlooxOC
                 File.WriteAllText(SettingsFile, json);
             }
             catch { }
-        }
-
-        // ====== ВАЛИДАЦИЯ КОДА (ЛОКАЛЬНАЯ) ======
-        public static bool ValidateCodeLocally(string code)
-        {
-            // В реальном проекте здесь будет запрос к серверу
-            // Сейчас это для тестирования
-            string[] validCodes = { "DEMO-2024", "TEST-1234", "FREE-2024" };
-            foreach (var valid in validCodes)
-            {
-                if (code == valid)
-                    return true;
-            }
-            return false;
         }
     }
 }

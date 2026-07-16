@@ -9,51 +9,59 @@ namespace FlooxOC
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-
-            // === ПРОВЕРКА АКТИВАЦИИ ===
-            if (AccountManager.IsFirstRun())
+            try
             {
-                using (var activationDialog = new ActivationDialog())
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+
+                // === ПРОВЕРКА АКТИВАЦИИ ===
+                if (AccountManager.IsFirstRun())
                 {
-                    activationDialog.ShowDialog();
-                    if (!activationDialog.IsActivated)
+                    using (var activationDialog = new ActivationDialog())
                     {
-                        MessageBox.Show("Для использования системы необходима активация!", "Ошибка",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        activationDialog.ShowDialog();
+                        if (!activationDialog.IsActivated)
+                        {
+                            MessageBox.Show("Для использования системы необходима активация!", "Ошибка",
+                                MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+                }
+
+                // === ПРОВЕРКА ВХОДА ===
+                bool loggedIn = false;
+
+                // Если есть пользователи или требуется пароль
+                if (AccountManager.GetAllUsers().Count > 0 || AccountManager.RequirePassword)
+                {
+                    using (var loginDialog = new LoginDialog())
+                    {
+                        loginDialog.ShowDialog();
+                        loggedIn = loginDialog.IsLoggedIn;
+                    }
+
+                    if (!loggedIn)
+                    {
+                        Application.Exit();
                         return;
                     }
                 }
-            }
-
-            // === ПРОВЕРКА ВХОДА ===
-            bool loggedIn = false;
-
-            // Если есть пользователи и требуется вход
-            if (AccountManager.GetAllUsers().Count > 0 || AccountManager.RequirePassword)
-            {
-                using (var loginDialog = new LoginDialog())
+                else
                 {
-                    loginDialog.ShowDialog();
-                    loggedIn = loginDialog.IsLoggedIn;
+                    // Если нет пользователей и пароль не требуется - создаём гостя
+                    AccountManager.RegisterUser("guest", "", "Гость");
+                    AccountManager.Login("guest", "");
                 }
 
-                if (!loggedIn)
-                {
-                    Application.Exit();
-                    return;
-                }
+                // === ЗАПУСК ОС ===
+                Application.Run(new Form1());
             }
-            else
+            catch (Exception ex)
             {
-                // Если нет пользователей и пароль не требуется - автоматический вход
-                AccountManager.RegisterUser("guest", "", "Гость");
-                AccountManager.Login("guest", "");
+                MessageBox.Show($"Критическая ошибка: {ex.Message}\n\n{ex.StackTrace}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-
-            // === ЗАПУСК ОС ===
-            Application.Run(new Form1());
         }
     }
 }

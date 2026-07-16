@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FlooxOC;
+using System;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -18,7 +19,7 @@ namespace FlooxOC
         public AddAppDialog(AppInfo editApp = null)
         {
             this.Text = editApp == null ? "Добавить приложение" : "Редактировать приложение";
-            this.Size = new Size(550, 500);
+            this.Size = new Size(600, 520);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -35,131 +36,238 @@ namespace FlooxOC
         private void InitializeControls()
         {
             int y = 20;
-            // Название
-            AddLabel("Название:", 20, y);
-            txtName = new TextBox { Location = new Point(150, y - 3), Size = new Size(350, 20) };
-            this.Controls.Add(txtName);
+            int labelWidth = 140;
 
-            y += 40;
+            // ===== ИКОНКА (ПРЕДПРОСМОТР) =====
+            Label lblIcon = new Label();
+            lblIcon.Text = "Иконка:";
+            lblIcon.Location = new Point(20, y);
+            lblIcon.Size = new Size(labelWidth, 25);
+            lblIcon.TextAlign = ContentAlignment.MiddleRight;
+            this.Controls.Add(lblIcon);
 
-            // Путь к .exe
-            AddLabel("Путь к .exe:", 20, y);
-            txtPath = new TextBox { Location = new Point(150, y - 3), Size = new Size(300, 20) };
-            btnBrowseExe = new Button { Text = "Обзор...", Location = new Point(455, y - 3), Size = new Size(45, 25) };
-            btnBrowseExe.Click += BrowseExe;
-            this.Controls.Add(txtPath);
-            this.Controls.Add(btnBrowseExe);
-
-            y += 40;
-
-            // Аргументы
-            AddLabel("Аргументы:", 20, y);
-            txtArgs = new TextBox { Location = new Point(150, y - 3), Size = new Size(350, 20) };
-            this.Controls.Add(txtArgs);
-
-            y += 40;
-
-            // Рабочая папка
-            AddLabel("Рабочая папка:", 20, y);
-            txtWorkDir = new TextBox { Location = new Point(150, y - 3), Size = new Size(300, 20) };
-            btnBrowseDir = new Button { Text = "Обзор...", Location = new Point(455, y - 3), Size = new Size(45, 25) };
-            btnBrowseDir.Click += BrowseDirectory;
-            this.Controls.Add(txtWorkDir);
-            this.Controls.Add(btnBrowseDir);
-
-            y += 40;
-
-            // Иконка
-            AddLabel("Иконка:", 20, y);
-            btnBrowseIcon = new Button { Text = "Выбрать иконку...", Location = new Point(150, y - 3), Size = new Size(120, 25) };
-            btnBrowseIcon.Click += BrowseIcon;
-
-            iconPreview = new PictureBox
-            {
-                Location = new Point(280, y - 3),
-                Size = new Size(40, 40),
-                SizeMode = PictureBoxSizeMode.StretchImage,
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            this.Controls.Add(btnBrowseIcon);
+            iconPreview = new PictureBox();
+            iconPreview.Size = new Size(64, 64);
+            iconPreview.Location = new Point(170, y - 5);
+            iconPreview.SizeMode = PictureBoxSizeMode.StretchImage;
+            iconPreview.BackColor = Color.White;
+            iconPreview.BorderStyle = BorderStyle.Fixed3D;
             this.Controls.Add(iconPreview);
 
-            y += 60;
+            // Кнопка извлечения иконки из файла
+            Button btnExtractIcon = new Button();
+            btnExtractIcon.Text = "📥 Извлечь из .exe";
+            btnExtractIcon.Size = new Size(120, 30);
+            btnExtractIcon.Location = new Point(245, y);
+            btnExtractIcon.FlatStyle = FlatStyle.Flat;
+            btnExtractIcon.BackColor = Color.FromArgb(0, 120, 215);
+            btnExtractIcon.ForeColor = Color.White;
+            btnExtractIcon.Cursor = Cursors.Hand;
+            btnExtractIcon.Click += (s, e) => ExtractIconFromExe();
+            this.Controls.Add(btnExtractIcon);
 
-            // Кнопки
-            btnAdd = new Button
-            {
-                Text = editingApp == null ? "Добавить" : "Сохранить",
-                Location = new Point(150, y),
-                Size = new Size(100, 35),
-                BackColor = Color.FromArgb(0, 120, 215),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
+            // Кнопка выбора иконки
+            btnBrowseIcon = new Button();
+            btnBrowseIcon.Text = "📂 Выбрать...";
+            btnBrowseIcon.Size = new Size(80, 30);
+            btnBrowseIcon.Location = new Point(375, y);
+            btnBrowseIcon.FlatStyle = FlatStyle.Flat;
+            btnBrowseIcon.BackColor = Color.FromArgb(150, 150, 150);
+            btnBrowseIcon.ForeColor = Color.White;
+            btnBrowseIcon.Cursor = Cursors.Hand;
+            btnBrowseIcon.Click += BrowseIcon;
+            this.Controls.Add(btnBrowseIcon);
+
+            y += 50;
+
+            // ===== НАЗВАНИЕ =====
+            Label lblName = new Label();
+            lblName.Text = "Название:";
+            lblName.Location = new Point(20, y);
+            lblName.Size = new Size(labelWidth, 25);
+            lblName.TextAlign = ContentAlignment.MiddleRight;
+            this.Controls.Add(lblName);
+
+            txtName = new TextBox();
+            txtName.Location = new Point(170, y);
+            txtName.Size = new Size(350, 25);
+            txtName.Font = new Font("Segoe UI", 10);
+            this.Controls.Add(txtName);
+            y += 40;
+
+            // ===== ПУТЬ К .EXE =====
+            Label lblPath = new Label();
+            lblPath.Text = "Путь к .exe:";
+            lblPath.Location = new Point(20, y);
+            lblPath.Size = new Size(labelWidth, 25);
+            lblPath.TextAlign = ContentAlignment.MiddleRight;
+            this.Controls.Add(lblPath);
+
+            txtPath = new TextBox();
+            txtPath.Location = new Point(170, y);
+            txtPath.Size = new Size(300, 25);
+            txtPath.Font = new Font("Segoe UI", 10);
+            txtPath.TextChanged += (s, e) => UpdatePreview();
+            this.Controls.Add(txtPath);
+
+            btnBrowseExe = new Button();
+            btnBrowseExe.Text = "Обзор...";
+            btnBrowseExe.Size = new Size(70, 25);
+            btnBrowseExe.Location = new Point(475, y);
+            btnBrowseExe.FlatStyle = FlatStyle.Flat;
+            btnBrowseExe.BackColor = Color.FromArgb(0, 120, 215);
+            btnBrowseExe.ForeColor = Color.White;
+            btnBrowseExe.Cursor = Cursors.Hand;
+            btnBrowseExe.Click += BrowseExe;
+            this.Controls.Add(btnBrowseExe);
+            y += 40;
+
+            // ===== АРГУМЕНТЫ =====
+            Label lblArgs = new Label();
+            lblArgs.Text = "Аргументы:";
+            lblArgs.Location = new Point(20, y);
+            lblArgs.Size = new Size(labelWidth, 25);
+            lblArgs.TextAlign = ContentAlignment.MiddleRight;
+            this.Controls.Add(lblArgs);
+
+            txtArgs = new TextBox();
+            txtArgs.Location = new Point(170, y);
+            txtArgs.Size = new Size(350, 25);
+            txtArgs.Font = new Font("Segoe UI", 10);
+            this.Controls.Add(txtArgs);
+            y += 40;
+
+            // ===== РАБОЧАЯ ПАПКА =====
+            Label lblWorkDir = new Label();
+            lblWorkDir.Text = "Рабочая папка:";
+            lblWorkDir.Location = new Point(20, y);
+            lblWorkDir.Size = new Size(labelWidth, 25);
+            lblWorkDir.TextAlign = ContentAlignment.MiddleRight;
+            this.Controls.Add(lblWorkDir);
+
+            txtWorkDir = new TextBox();
+            txtWorkDir.Location = new Point(170, y);
+            txtWorkDir.Size = new Size(300, 25);
+            txtWorkDir.Font = new Font("Segoe UI", 10);
+            this.Controls.Add(txtWorkDir);
+
+            btnBrowseDir = new Button();
+            btnBrowseDir.Text = "Обзор...";
+            btnBrowseDir.Size = new Size(70, 25);
+            btnBrowseDir.Location = new Point(475, y);
+            btnBrowseDir.FlatStyle = FlatStyle.Flat;
+            btnBrowseDir.BackColor = Color.FromArgb(0, 120, 215);
+            btnBrowseDir.ForeColor = Color.White;
+            btnBrowseDir.Cursor = Cursors.Hand;
+            btnBrowseDir.Click += BrowseDirectory;
+            this.Controls.Add(btnBrowseDir);
+            y += 50;
+
+            // ===== КНОПКИ =====
+            btnAdd = new Button();
+            btnAdd.Text = editingApp == null ? "✅ Добавить" : "💾 Сохранить";
+            btnAdd.Size = new Size(120, 40);
+            btnAdd.Location = new Point(170, y);
+            btnAdd.BackColor = Color.FromArgb(0, 120, 215);
+            btnAdd.ForeColor = Color.White;
+            btnAdd.FlatStyle = FlatStyle.Flat;
+            btnAdd.Cursor = Cursors.Hand;
             btnAdd.Click += AddApp;
-
-            btnCancel = new Button
-            {
-                Text = "Отмена",
-                Location = new Point(260, y),
-                Size = new Size(100, 35),
-                BackColor = Color.FromArgb(200, 80, 80),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat
-            };
-            btnCancel.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
-
             this.Controls.Add(btnAdd);
+
+            btnCancel = new Button();
+            btnCancel.Text = "❌ Отмена";
+            btnCancel.Size = new Size(120, 40);
+            btnCancel.Location = new Point(300, y);
+            btnCancel.BackColor = Color.FromArgb(200, 80, 80);
+            btnCancel.ForeColor = Color.White;
+            btnCancel.FlatStyle = FlatStyle.Flat;
+            btnCancel.Cursor = Cursors.Hand;
+            btnCancel.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
             this.Controls.Add(btnCancel);
         }
 
-        private void AddLabel(string text, int x, int y)
+        // ====== ИЗВЛЕЧЕНИЕ ИКОНКИ ИЗ .EXE ======
+        private void ExtractIconFromExe()
         {
-            Label lbl = new Label
+            string path = txtPath.Text.Trim();
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
-                Text = text,
-                Location = new Point(x, y),
-                Size = new Size(130, 20),
-                TextAlign = ContentAlignment.MiddleRight,
-                Font = new Font("Segoe UI", 9)
-            };
-            this.Controls.Add(lbl);
+                MessageBox.Show("Сначала выберите .exe файл!", "Информация",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                Image icon = AppManager.ExtractIconFromFile(path);
+                if (icon != null)
+                {
+                    iconPreview.Image = icon;
+                    selectedIconPath = path;
+                    MessageBox.Show("Иконка успешно извлечена!", "Успех",
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Не удалось извлечь иконку из файла.", "Ошибка",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void UpdatePreview()
+        {
+            string path = txtPath.Text.Trim();
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                // Обновляем название, если оно пустое
+                if (string.IsNullOrEmpty(txtName.Text) || editingApp == null)
+                {
+                    txtName.Text = Path.GetFileNameWithoutExtension(path);
+                }
+
+                // Обновляем рабочую папку
+                if (string.IsNullOrEmpty(txtWorkDir.Text))
+                {
+                    txtWorkDir.Text = Path.GetDirectoryName(path);
+                }
+            }
         }
 
         private void BrowseExe(object sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
-                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Все файлы (*.*)|*.*";
+                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Ярлыки (*.lnk)|*.lnk|Все файлы (*.*)|*.*";
+                ofd.Title = "Выберите программу";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     txtPath.Text = ofd.FileName;
 
-                    // Автозаполнение названия
+                    // Автозаполнение
                     if (string.IsNullOrEmpty(txtName.Text) || editingApp == null)
                         txtName.Text = Path.GetFileNameWithoutExtension(ofd.FileName);
 
-                    // Автозаполнение рабочей папки
                     if (string.IsNullOrEmpty(txtWorkDir.Text))
                         txtWorkDir.Text = Path.GetDirectoryName(ofd.FileName);
 
                     // Автоматически извлекаем иконку
-                    if (string.IsNullOrEmpty(selectedIconPath))
+                    try
                     {
-                        try
+                        Image icon = AppManager.ExtractIconFromFile(ofd.FileName);
+                        if (icon != null)
                         {
-                            var icon = System.Drawing.Icon.ExtractAssociatedIcon(ofd.FileName);
-                            if (icon != null)
-                            {
-                                iconPreview.Image = icon.ToBitmap();
-                                // Сохраняем иконку временно
-                                selectedIconPath = ofd.FileName;
-                            }
+                            iconPreview.Image = icon;
+                            selectedIconPath = ofd.FileName;
                         }
-                        catch { }
                     }
+                    catch { }
                 }
             }
         }
@@ -169,6 +277,7 @@ namespace FlooxOC
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
                 ofd.Filter = "Изображения (*.png;*.jpg;*.bmp;*.ico)|*.png;*.jpg;*.bmp;*.ico|Все файлы (*.*)|*.*";
+                ofd.Title = "Выберите иконку";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
                     try
@@ -188,6 +297,7 @@ namespace FlooxOC
         {
             using (FolderBrowserDialog fbd = new FolderBrowserDialog())
             {
+                fbd.Description = "Выберите рабочую папку";
                 if (fbd.ShowDialog() == DialogResult.OK)
                 {
                     txtWorkDir.Text = fbd.SelectedPath;

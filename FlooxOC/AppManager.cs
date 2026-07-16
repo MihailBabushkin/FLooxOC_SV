@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FlooxOC;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -9,25 +10,17 @@ namespace FlooxOC
 {
     public static class AppManager
     {
-        private static string AppDataPath = Path.Combine(
+        private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "Apps"
+            "FlooxOC. Home Version", "Apps"
         );
-        private static string AppsFile = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "apps.json"
-        );
-        private static string IconsFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "Icons"
-        );
-
+        private static string AppsFile = Path.Combine(DataPath, "apps.json");
+        private static string IconsFolder = Path.Combine(DataPath, "Icons");
         private static List<AppInfo> apps = new List<AppInfo>();
 
         static AppManager()
         {
-            // Создаём папки
-            Directory.CreateDirectory(AppDataPath);
+            Directory.CreateDirectory(DataPath);
             Directory.CreateDirectory(IconsFolder);
             LoadApps();
         }
@@ -39,12 +32,53 @@ namespace FlooxOC
 
         public static void AddApp(AppInfo app)
         {
-            // Копируем иконку в папку приложения
-            if (!string.IsNullOrEmpty(app.IconPath) && File.Exists(app.IconPath))
+            // === ИЗВЛЕКАЕМ ИКОНКУ ИЗ .EXE ===
+            if (!string.IsNullOrEmpty(app.ExecutablePath) && File.Exists(app.ExecutablePath))
+            {
+                try
+                {
+                    // Извлекаем иконку из exe
+                    Icon icon = Icon.ExtractAssociatedIcon(app.ExecutablePath);
+                    if (icon != null)
+                    {
+                        // Конвертируем в Bitmap
+                        Bitmap bitmap = icon.ToBitmap();
+
+                        // Сохраняем в папку
+                        string iconName = $"{app.Id}.png";
+                        string destPath = Path.Combine(IconsFolder, iconName);
+                        bitmap.Save(destPath, System.Drawing.Imaging.ImageFormat.Png);
+                        app.IconPath = destPath;
+
+                        bitmap.Dispose();
+                        icon.Dispose();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Если не удалось извлечь иконку, используем стандартную
+                    Console.WriteLine($"Ошибка извлечения иконки: {ex.Message}");
+                }
+            }
+
+            // Если иконка не найдена — используем стандартную
+            if (string.IsNullOrEmpty(app.IconPath))
             {
                 string iconName = $"{app.Id}.png";
                 string destPath = Path.Combine(IconsFolder, iconName);
-                File.Copy(app.IconPath, destPath, true);
+
+                // Создаём стандартную иконку
+                Bitmap defaultIcon = new Bitmap(40, 40);
+                using (Graphics g = Graphics.FromImage(defaultIcon))
+                {
+                    g.Clear(Color.FromArgb(220, 220, 220));
+                    using (Font font = new Font("Segoe UI", 20))
+                    {
+                        g.DrawString("📦", font, Brushes.Black, 5, 5);
+                    }
+                }
+                defaultIcon.Save(destPath, System.Drawing.Imaging.ImageFormat.Png);
+                defaultIcon.Dispose();
                 app.IconPath = destPath;
             }
 
@@ -57,9 +91,18 @@ namespace FlooxOC
             var app = apps.Find(a => a.Id == appId);
             if (app != null)
             {
-                // Удаляем иконку
-                if (File.Exists(app.IconPath))
-                    File.Delete(app.IconPath);
+                // === БЕЗОПАСНОЕ УДАЛЕНИЕ ===
+                try
+                {
+                    if (!string.IsNullOrEmpty(app.IconPath) && File.Exists(app.IconPath))
+                    {
+                        File.Delete(app.IconPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка удаления иконки: {ex.Message}");
+                }
 
                 apps.Remove(app);
                 SaveApps();
@@ -68,12 +111,16 @@ namespace FlooxOC
 
         public static bool LaunchApp(AppInfo app)
         {
+            MessageBox.Show($"1. LaunchApp вызван для: {app.Name}", "Отладка");
+
             if (string.IsNullOrEmpty(app.ExecutablePath) || !File.Exists(app.ExecutablePath))
             {
-                MessageBox.Show($"Файл не найден:\n{app.ExecutablePath}", "Ошибка",
+                MessageBox.Show($"2. Файл не найден:\n{app.ExecutablePath}", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
+
+            MessageBox.Show($"3. Файл существует: {app.ExecutablePath}", "Отладка");
 
             try
             {
@@ -86,14 +133,116 @@ namespace FlooxOC
                     UseShellExecute = true
                 };
 
+                MessageBox.Show($"4. Запускаем процесс...", "Отладка");
                 System.Diagnostics.Process.Start(startInfo);
+                MessageBox.Show($"5. Процесс запущен!", "Отладка");
                 return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка запуска:\n{ex.Message}", "Ошибка",
+                MessageBox.Show($"6. Ошибка запуска:\n{ex.Message}", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
+            }
+        }
+
+        public static Image LoadAppIcon(AppInfo app)
+        {
+            if (!string.IsNullOrEmpty(app.IconPath) && File.Exists(app.IconPath))
+            {
+                try
+                {
+                    return Image.FromFile(app.IconPath);
+                }
+                catch { return null; }
+            }
+            return null;
+        }
+
+        // ====== ИЗВЛЕЧЕНИЕ ИКОНКИ ИЗ ЛЮБОГО ФАЙЛА ======
+        public static Image ExtractIconFromFile(string filePath)
+        {
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    // Проверяем, является ли файл ярлыком (.lnk)
+                    if (filePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Извлекаем путь из ярлыка
+                        string targetPath = ResolveShortcut(filePath);
+                        if (!string.IsNullOrEmpty(targetPath) && File.Exists(targetPath))
+                        {
+                            // Извлекаем иконку из целевого файла
+                            Icon icon = Icon.ExtractAssociatedIcon(targetPath);
+                            if (icon != null)
+                                return icon.ToBitmap();
+                        }
+                    }
+
+                    // Обычный файл .exe
+                    Icon exeIcon = Icon.ExtractAssociatedIcon(filePath);
+                    if (exeIcon != null)
+                        return exeIcon.ToBitmap();
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        // ====== РАЗРЕШЕНИЕ ЯРЛЫКА (.lnk) ======
+        public static string ResolveShortcut(string shortcutPath)
+        {
+            try
+            {
+                // Создаём объект Shell для работы с ярлыками
+                dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+                dynamic shortcut = shell.CreateShortcut(shortcutPath);
+                string target = shortcut.TargetPath;
+                return target;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // ====== ПОЛУЧЕНИЕ ИКОНКИ ДЛЯ ДИАЛОГА ======
+        public static Image GetIconForFile(string filePath)
+        {
+            // Пытаемся извлечь иконку
+            Image icon = ExtractIconFromFile(filePath);
+
+            // Если не удалось — создаём заглушку с первой буквой
+            if (icon == null)
+            {
+                string name = Path.GetFileNameWithoutExtension(filePath);
+                Bitmap bmp = new Bitmap(40, 40);
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.Clear(Color.FromArgb(220, 220, 220));
+                    using (Font font = new Font("Segoe UI", 16, FontStyle.Bold))
+                    {
+                        string firstChar = name.Length > 0 ? name[0].ToString().ToUpper() : "?";
+                        g.DrawString(firstChar, font, Brushes.DarkGray, 10, 8);
+                    }
+                }
+                icon = bmp;
+            }
+
+            return icon;
+        }
+
+        public static void SaveApps()
+        {
+            try
+            {
+                string json = JsonSerializer.Serialize(apps, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(AppsFile, json);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка сохранения: {ex.Message}");
             }
         }
 
@@ -113,59 +262,9 @@ namespace FlooxOC
             }
             else
             {
-                // Добавляем демо-приложение
                 apps = new List<AppInfo>();
                 SaveApps();
             }
-        }
-
-        private static void SaveApps()
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(AppsFile));
-                string json = JsonSerializer.Serialize(apps, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(AppsFile, json);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка сохранения: {ex.Message}");
-            }
-        }
-
-        public static void ClearAll()
-        {
-            apps.Clear();
-            SaveApps();
-        }
-
-        public static Image LoadAppIcon(AppInfo app)
-        {
-            if (!string.IsNullOrEmpty(app.IconPath) && File.Exists(app.IconPath))
-            {
-                try
-                {
-                    return Image.FromFile(app.IconPath);
-                }
-                catch { return null; }
-            }
-            return null;
-        }
-
-        // Получаем иконку из файла .exe
-        public static Image ExtractIconFromFile(string filePath)
-        {
-            try
-            {
-                if (File.Exists(filePath))
-                {
-                    var icon = System.Drawing.Icon.ExtractAssociatedIcon(filePath);
-                    if (icon != null)
-                        return icon.ToBitmap();
-                }
-            }
-            catch { }
-            return null;
         }
     }
 }

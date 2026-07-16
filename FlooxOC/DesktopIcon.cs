@@ -8,19 +8,30 @@ namespace FlooxOC
     {
         private string displayName;
         private Image iconImage;
+        private bool isDragging = false;
+        private Point dragOffset;
+        private bool isLeftMouseDown = false;
+        private bool isRightMouseDown = false;
+        private Timer leftClickTimer;
+        private Timer rightClickTimer;
+        private bool rightClickHeld = false;
+        private bool hasMoved = false;
+        private bool contextMenuShown = false;
+        private bool isLeftClickCompleted = false;
+        private DateTime lastClickTime;  // ← Время последнего клика
+        private Timer clickCooldownTimer; // ← Таймер для задержки
 
         public string AppId { get; set; }
         public string Type { get; set; }
 
-        public event EventHandler IconClick;
-        public event EventHandler IconDelete;
-        public event EventHandler<Point> IconMoved;
+        public event EventHandler OnDelete;
 
         public DesktopIcon(string text, Image icon = null, string type = "app")
         {
             AppId = "";
             Type = type;
             displayName = text;
+            lastClickTime = DateTime.MinValue;
 
             this.Size = new Size(80, 75);
             this.FlatStyle = FlatStyle.Flat;
@@ -28,7 +39,6 @@ namespace FlooxOC
             this.BackColor = Color.Transparent;
             this.Cursor = Cursors.Hand;
             this.TextAlign = ContentAlignment.BottomCenter;
-            this.Text = text;
             this.Font = new Font("Segoe UI", 8);
             this.ForeColor = Color.White;
 
@@ -37,53 +47,37 @@ namespace FlooxOC
                 iconImage = (Image)icon.Clone();
                 this.Image = iconImage;
                 this.ImageAlign = ContentAlignment.TopCenter;
+                this.Text = text;
             }
             else
             {
                 this.Text = "📦\n" + text;
             }
 
-            // === КЛИК ===
-            this.Click += (s, e) =>
+            leftClickTimer = new Timer();
+            leftClickTimer.Interval = 1000;
+            leftClickTimer.Tick += LeftClickTimer_Tick;
+
+            rightClickTimer = new Timer();
+            rightClickTimer.Interval = 1800;
+            rightClickTimer.Tick += RightClickTimer_Tick;
+
+            // === ТАЙМЕР ДЛЯ ЗАЩИТЫ ОТ ПОВТОРНОГО ОТКРЫТИЯ ===
+            clickCooldownTimer = new Timer();
+            clickCooldownTimer.Interval = 1000; // 1 секунда
+            clickCooldownTimer.Tick += (s, e) =>
             {
-                IconClick?.Invoke(this, EventArgs.Empty);
+                clickCooldownTimer.Stop();
+                // Разблокируем клик
+                this.Enabled = true;
             };
 
-            // === ПЕРЕТАСКИВАНИЕ ===
-            this.MouseDown += (s, e) =>
-            {
-                if (e.Button == MouseButtons.Left)
-                {
-                    this.Capture = true;
-                }
-            };
-
-            this.MouseMove += (s, e) =>
-            {
-                if (this.Capture && e.Button == MouseButtons.Left)
-                {
-                    int dx = e.X - this.Width / 2;
-                    int dy = e.Y - this.Height / 2;
-                    this.Location = new Point(this.Location.X + dx, this.Location.Y + dy);
-                    IconMoved?.Invoke(this, this.Location);
-                }
-            };
-
-            this.MouseUp += (s, e) =>
-            {
-                if (e.Button == MouseButtons.Left)
-                {
-                    this.Capture = false;
-                }
-            };
-
-            // === КОНТЕКСТНОЕ МЕНЮ ===
             ContextMenuStrip menu = new ContextMenuStrip();
 
             if (Type != "system")
             {
                 ToolStripMenuItem deleteItem = new ToolStripMenuItem("🗑️ Удалить");
-                deleteItem.Click += (s, e) => IconDelete?.Invoke(this, EventArgs.Empty);
+                deleteItem.Click += (s, e) => OnDelete?.Invoke(this, EventArgs.Empty);
                 menu.Items.Add(deleteItem);
             }
 
@@ -101,6 +95,169 @@ namespace FlooxOC
             menu.Items.Add(propertiesItem);
 
             this.ContextMenuStrip = menu;
+        }
+
+        private void LeftClickTimer_Tick(object sender, EventArgs e)
+        {
+            leftClickTimer.Stop();
+            if (isLeftMouseDown && !isDragging && !hasMoved)
+            {
+                isLeftClickCompleted = true;
+                ExecuteSafeClick();
+            }
+        }
+
+        private void RightClickTimer_Tick(object sender, EventArgs e)
+        {
+            rightClickTimer.Stop();
+            rightClickHeld = true;
+            if (isRightMouseDown && !isDragging)
+            {
+                isDragging = true;
+                dragOffset = new Point(this.Width / 2, this.Height / 2);
+                this.Cursor = Cursors.SizeAll;
+                this.Capture = true;
+            }
+        }
+
+        // ====== БЕЗОПАСНЫЙ КЛИК С ЗАЩИТОЙ ОТ ПОВТОРОВ ======
+        private void ExecuteSafeClick()
+        {
+            // Проверяем, не было ли клика менее секунды назад
+            TimeSpan timeSinceLastClick = DateTime.Now - lastClickTime;
+            if (timeSinceLastClick.TotalMilliseconds < 1000)
+            {
+                // Слишком часто — игнорируем
+                return;
+            }
+
+            // Блокируем кнопку на 1 секунду
+            this.Enabled = false;
+            clickCooldownTimer.Start();
+
+            // Запоминаем время клика
+            lastClickTime = DateTime.Now;
+
+            // Вызываем событие Click
+            this.OnClick(EventArgs.Empty);
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isLeftMouseDown = true;
+                isLeftClickCompleted = false;
+                hasMoved = false;
+                this.Capture = true;
+                this.Cursor = Cursors.Hand;
+                leftClickTimer.Start();
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                isRightMouseDown = true;
+                rightClickHeld = false;
+                contextMenuShown = false;
+                hasMoved = false;
+                this.Cursor = Cursors.Hand;
+                rightClickTimer.Start();
+            }
+
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            if (isDragging && isRightMouseDown && this.Capture)
+            {
+                Point newLocation = this.Parent.PointToClient(this.PointToScreen(new Point(e.X, e.Y)));
+                newLocation.Offset(-dragOffset.X, -dragOffset.Y);
+                this.Location = newLocation;
+                hasMoved = true;
+            }
+            else if (isLeftMouseDown && this.Capture)
+            {
+                if (Math.Abs(e.X - this.Width / 2) > 3 || Math.Abs(e.Y - this.Height / 2) > 3)
+                {
+                    hasMoved = true;
+                    leftClickTimer.Stop();
+                }
+            }
+            else if (isRightMouseDown && !isDragging && this.Capture)
+            {
+                if (Math.Abs(e.X - this.Width / 2) > 5 || Math.Abs(e.Y - this.Height / 2) > 5)
+                {
+                    rightClickTimer.Stop();
+                    isDragging = true;
+                    dragOffset = new Point(this.Width / 2, this.Height / 2);
+                    this.Cursor = Cursors.SizeAll;
+                    hasMoved = true;
+                }
+            }
+
+            base.OnMouseMove(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isLeftMouseDown = false;
+                leftClickTimer.Stop();
+                this.Cursor = Cursors.Hand;
+
+                if (!isLeftClickCompleted)
+                {
+                    if (!isDragging && !hasMoved)
+                    {
+                        ExecuteSafeClick();
+                    }
+                }
+
+                this.Capture = false;
+                isLeftClickCompleted = false;
+                hasMoved = false;
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                isRightMouseDown = false;
+                rightClickTimer.Stop();
+                this.Cursor = Cursors.Hand;
+
+                if (isDragging)
+                {
+                    isDragging = false;
+                    this.Capture = false;
+                }
+                else if (!rightClickHeld && !hasMoved && !contextMenuShown)
+                {
+                    contextMenuShown = true;
+                    if (this.ContextMenuStrip != null)
+                    {
+                        this.ContextMenuStrip.Show(this, new Point(0, this.Height));
+                    }
+                }
+
+                rightClickHeld = false;
+                hasMoved = false;
+                this.Capture = false;
+            }
+
+            base.OnMouseUp(e);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_CONTEXTMENU = 0x007B;
+            if (m.Msg == WM_CONTEXTMENU)
+            {
+                if (!isDragging && this.ContextMenuStrip != null)
+                {
+                    this.ContextMenuStrip.Show(this, new Point(0, this.Height));
+                }
+                return;
+            }
+            base.WndProc(ref m);
         }
 
         private void StartRename()
@@ -209,6 +366,21 @@ namespace FlooxOC
             {
                 if (iconImage != null) iconImage.Dispose();
                 if (this.ContextMenuStrip != null) this.ContextMenuStrip.Dispose();
+                if (leftClickTimer != null)
+                {
+                    leftClickTimer.Stop();
+                    leftClickTimer.Dispose();
+                }
+                if (rightClickTimer != null)
+                {
+                    rightClickTimer.Stop();
+                    rightClickTimer.Dispose();
+                }
+                if (clickCooldownTimer != null)
+                {
+                    clickCooldownTimer.Stop();
+                    clickCooldownTimer.Dispose();
+                }
             }
             base.Dispose(disposing);
         }

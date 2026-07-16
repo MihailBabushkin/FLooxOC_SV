@@ -7,6 +7,7 @@ namespace FlooxOC
     public class CustomWindow : Panel
     {
         public static Color DefaultBackground = Color.White;
+
         private Panel titleBar;
         private Label titleLabel;
         private Button closeBtn, maxBtn, minBtn;
@@ -38,6 +39,11 @@ namespace FlooxOC
                     value.Dock = DockStyle.Fill;
                     value.Location = new Point(0, 0);
                     contentPanel.Controls.Add(value);
+
+                    value.BackColor = DefaultBackground;
+
+                    Color textColor = GetContrastColor(DefaultBackground);
+                    SetControlForeColor(value, textColor);
                 }
             }
         }
@@ -50,7 +56,7 @@ namespace FlooxOC
         {
             this.Size = new Size(500, 400);
             this.MinimumSize = new Size(200, 150);
-            this.BackColor = Color.FromArgb(192, 192, 192);
+            this.BackColor = DefaultBackground;
             this.BorderStyle = BorderStyle.FixedSingle;
             this.DoubleBuffered = true;
 
@@ -58,7 +64,239 @@ namespace FlooxOC
             InitializeContent(content);
             SetDefaultPosition();
             this.Resize += OnResize;
+
+            Color textColor = GetContrastColor(DefaultBackground);
+            SetControlForeColor(this, textColor);
+
+            // Подписываемся на события для поднятия окна
+            this.MouseDown += OnWindowMouseDown;
+            this.Click += OnWindowClick;
+            titleBar.MouseDown += OnWindowMouseDown;
         }
+
+        // ====== ПОДНЯТИЕ ОКНА ======
+        private void OnWindowMouseDown(object sender, MouseEventArgs e)
+        {
+            BringToFront();
+        }
+
+        private void OnWindowClick(object sender, EventArgs e)
+        {
+            BringToFront();
+        }
+
+        // ====== ПЕРЕТАСКИВАНИЕ ======
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && !isMaximized)
+            {
+                isDragging = true;
+                dragOffset = new Point(e.X, e.Y);
+                titleBar.Capture = true;
+                BringToFront();
+            }
+        }
+
+        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDragging && !isMaximized)
+            {
+                Point newLocation = this.PointToScreen(new Point(e.X, e.Y));
+                newLocation.Offset(-dragOffset.X, -dragOffset.Y);
+                this.Location = newLocation;
+            }
+        }
+
+        private void TitleBar_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (isDragging)
+            {
+                isDragging = false;
+                titleBar.Capture = false;
+            }
+        }
+
+        // ====== РЕСАЙЗ ======
+        private bool isResizing = false;
+        private Point resizeStart;
+        private Size resizeStartSize;
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+
+            if (!isMaximized)
+            {
+                bool onRight = e.X >= this.Width - RESIZE_MARGIN;
+                bool onBottom = e.Y >= this.Height - RESIZE_MARGIN;
+                bool onLeft = e.X <= RESIZE_MARGIN;
+                bool onTop = e.Y <= RESIZE_MARGIN;
+
+                if (onRight && onBottom)
+                    this.Cursor = Cursors.SizeNWSE;
+                else if (onLeft && onBottom)
+                    this.Cursor = Cursors.SizeNESW;
+                else if (onRight && onTop)
+                    this.Cursor = Cursors.SizeNESW;
+                else if (onLeft && onTop)
+                    this.Cursor = Cursors.SizeNWSE;
+                else if (onRight || onLeft)
+                    this.Cursor = Cursors.SizeWE;
+                else if (onBottom || onTop)
+                    this.Cursor = Cursors.SizeNS;
+                else
+                    this.Cursor = Cursors.Default;
+            }
+
+            // Ресайз
+            if (isResizing && !isMaximized)
+            {
+                int deltaX = e.X - resizeStart.X;
+                int deltaY = e.Y - resizeStart.Y;
+
+                bool onRight = resizeStart.X >= this.Width - RESIZE_MARGIN;
+                bool onBottom = resizeStart.Y >= this.Height - RESIZE_MARGIN;
+                bool onLeft = resizeStart.X <= RESIZE_MARGIN;
+                bool onTop = resizeStart.Y <= RESIZE_MARGIN;
+
+                int newWidth = this.Width;
+                int newHeight = this.Height;
+                int newX = this.Location.X;
+                int newY = this.Location.Y;
+
+                if (onRight)
+                {
+                    newWidth = Math.Max(this.MinimumSize.Width, this.Width + deltaX);
+                }
+                if (onLeft)
+                {
+                    int delta = Math.Min(deltaX, this.Width - this.MinimumSize.Width);
+                    newWidth = this.Width - delta;
+                    newX = this.Location.X + delta;
+                }
+                if (onBottom)
+                {
+                    newHeight = Math.Max(this.MinimumSize.Height, this.Height + deltaY);
+                }
+                if (onTop)
+                {
+                    int delta = Math.Min(deltaY, this.Height - this.MinimumSize.Height);
+                    newHeight = this.Height - delta;
+                    newY = this.Location.Y + delta;
+                }
+
+                this.Bounds = new Rectangle(newX, newY, newWidth, newHeight);
+                BringToFront();
+            }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+
+            if (!isMaximized)
+            {
+                bool onRight = e.X >= this.Width - RESIZE_MARGIN;
+                bool onBottom = e.Y >= this.Height - RESIZE_MARGIN;
+                bool onLeft = e.X <= RESIZE_MARGIN;
+                bool onTop = e.Y <= RESIZE_MARGIN;
+
+                if (onRight || onBottom || onLeft || onTop)
+                {
+                    isResizing = true;
+                    resizeStart = new Point(e.X, e.Y);
+                    resizeStartSize = this.Size;
+                    this.Capture = true;
+                    BringToFront();
+                }
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            if (isResizing)
+            {
+                isResizing = false;
+                this.Capture = false;
+            }
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            this.Cursor = Cursors.Default;
+        }
+
+        // ====== WNDPROC ДЛЯ РЕСАЙЗА ======
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_NCHITTEST = 0x0084;
+            const int HTLEFT = 10;
+            const int HTRIGHT = 11;
+            const int HTTOP = 12;
+            const int HTTOPLEFT = 13;
+            const int HTTOPRIGHT = 14;
+            const int HTBOTTOM = 15;
+            const int HTBOTTOMLEFT = 16;
+            const int HTBOTTOMRIGHT = 17;
+
+            if (m.Msg == WM_NCHITTEST && !isMaximized)
+            {
+                Point pos = this.PointToClient(new Point(m.LParam.ToInt32() & 0xffff, m.LParam.ToInt32() >> 16));
+
+                if (pos.Y <= titleBar.Height)
+                {
+                    base.WndProc(ref m);
+                    return;
+                }
+
+                if (pos.X >= this.Width - RESIZE_MARGIN && pos.Y >= this.Height - RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTBOTTOMRIGHT;
+                    return;
+                }
+                else if (pos.X <= RESIZE_MARGIN && pos.Y >= this.Height - RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTBOTTOMLEFT;
+                    return;
+                }
+                else if (pos.X >= this.Width - RESIZE_MARGIN && pos.Y <= RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTTOPRIGHT;
+                    return;
+                }
+                else if (pos.X <= RESIZE_MARGIN && pos.Y <= RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTTOPLEFT;
+                    return;
+                }
+                else if (pos.X >= this.Width - RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTRIGHT;
+                    return;
+                }
+                else if (pos.Y >= this.Height - RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTBOTTOM;
+                    return;
+                }
+                else if (pos.X <= RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTLEFT;
+                    return;
+                }
+                else if (pos.Y <= RESIZE_MARGIN)
+                {
+                    m.Result = (IntPtr)HTTOP;
+                    return;
+                }
+            }
+
+            base.WndProc(ref m);
+        }
+
+        // ====== ОСТАЛЬНЫЕ МЕТОДЫ ======
 
         private void InitializeTitleBar(string title)
         {
@@ -146,7 +384,7 @@ namespace FlooxOC
             contentPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
+                BackColor = DefaultBackground,
                 Padding = new Padding(5),
                 AutoScroll = true
             };
@@ -158,14 +396,13 @@ namespace FlooxOC
                     Text = text,
                     Dock = DockStyle.Fill,
                     Font = new Font("Segoe UI", 10),
-                    BackColor = Color.White
+                    BackColor = DefaultBackground,
+                    ForeColor = GetContrastColor(DefaultBackground)
                 };
                 contentPanel.Controls.Add(label);
             }
 
             this.Controls.Add(contentPanel);
-
-            // Важно: контент должен быть под шапкой
             contentPanel.BringToFront();
         }
 
@@ -189,42 +426,12 @@ namespace FlooxOC
                 minBtn.Location = new Point(titleBar.Width - 77, 4);
             }
 
-            // Обновляем контент
             if (contentPanel != null)
             {
                 contentPanel.Size = new Size(
                     this.ClientSize.Width,
                     this.ClientSize.Height - titleBar.Height
                 );
-            }
-        }
-
-        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left && !isMaximized)
-            {
-                isDragging = true;
-                dragOffset = new Point(e.X, e.Y);
-                titleBar.Capture = true;
-            }
-        }
-
-        private void TitleBar_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (isDragging && !isMaximized)
-            {
-                Point newLocation = this.PointToScreen(new Point(e.X, e.Y));
-                newLocation.Offset(-dragOffset.X, -dragOffset.Y);
-                this.Location = newLocation;
-            }
-        }
-
-        private void TitleBar_MouseUp(object sender, MouseEventArgs e)
-        {
-            if (isDragging)
-            {
-                isDragging = false;
-                titleBar.Capture = false;
             }
         }
 
@@ -276,71 +483,89 @@ namespace FlooxOC
                 ToggleMaximize();
         }
 
-        protected override void WndProc(ref Message m)
+        // ====== АВТОМАТИЧЕСКИЙ ВЫБОР ЦВЕТА ТЕКСТА ======
+        private Color GetContrastColor(Color backgroundColor)
         {
-            const int WM_NCHITTEST = 0x0084;
-            const int HTLEFT = 10;
-            const int HTRIGHT = 11;
-            const int HTTOP = 12;
-            const int HTTOPLEFT = 13;
-            const int HTTOPRIGHT = 14;
-            const int HTBOTTOM = 15;
-            const int HTBOTTOMLEFT = 16;
-            const int HTBOTTOMRIGHT = 17;
+            double brightness = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
+            return brightness < 0.5 ? Color.White : Color.Black;
+        }
 
-            if (m.Msg == WM_NCHITTEST && !isMaximized)
+        private void SetControlForeColor(Control control, Color color)
+        {
+            foreach (Control child in control.Controls)
             {
-                Point pos = this.PointToClient(new Point(m.LParam.ToInt32() & 0xffff, m.LParam.ToInt32() >> 16));
-
-                if (pos.Y <= titleBar.Height)
+                if (child is Label label)
                 {
-                    base.WndProc(ref m);
-                    return;
+                    label.ForeColor = color;
                 }
-
-                if (pos.X >= this.Width - RESIZE_MARGIN && pos.Y >= this.Height - RESIZE_MARGIN)
+                else if (child is TextBox textBox)
                 {
-                    m.Result = (IntPtr)HTBOTTOMRIGHT;
-                    return;
+                    textBox.ForeColor = color;
                 }
-                else if (pos.X <= RESIZE_MARGIN && pos.Y >= this.Height - RESIZE_MARGIN)
+                else if (child is RichTextBox richTextBox)
                 {
-                    m.Result = (IntPtr)HTBOTTOMLEFT;
-                    return;
+                    richTextBox.ForeColor = color;
                 }
-                else if (pos.X >= this.Width - RESIZE_MARGIN && pos.Y <= RESIZE_MARGIN)
+                else if (child is Button button)
                 {
-                    m.Result = (IntPtr)HTTOPRIGHT;
-                    return;
+                    button.ForeColor = GetContrastColor(button.BackColor);
                 }
-                else if (pos.X <= RESIZE_MARGIN && pos.Y <= RESIZE_MARGIN)
+                else if (child is CheckBox checkBox)
                 {
-                    m.Result = (IntPtr)HTTOPLEFT;
-                    return;
+                    checkBox.ForeColor = color;
                 }
-                else if (pos.X >= this.Width - RESIZE_MARGIN)
+                else if (child is Panel panel)
                 {
-                    m.Result = (IntPtr)HTRIGHT;
-                    return;
+                    panel.BackColor = DefaultBackground;
+                    SetControlForeColor(child, color);
                 }
-                else if (pos.Y >= this.Height - RESIZE_MARGIN)
+                else
                 {
-                    m.Result = (IntPtr)HTBOTTOM;
-                    return;
-                }
-                else if (pos.X <= RESIZE_MARGIN)
-                {
-                    m.Result = (IntPtr)HTLEFT;
-                    return;
-                }
-                else if (pos.Y <= RESIZE_MARGIN)
-                {
-                    m.Result = (IntPtr)HTTOP;
-                    return;
+                    SetControlForeColor(child, color);
                 }
             }
+        }
 
-            base.WndProc(ref m);
+        // ====== ОБНОВЛЕНИЕ ЦВЕТА ВСЕХ ОКОН ======
+        public static void UpdateAllWindows()
+        {
+            foreach (Form form in Application.OpenForms)
+            {
+                foreach (Control ctrl in form.Controls)
+                {
+                    if (ctrl is CustomWindow window)
+                    {
+                        window.UpdateColors();
+                    }
+                }
+            }
+        }
+
+        public void UpdateColors()
+        {
+            this.BackColor = DefaultBackground;
+
+            if (contentPanel != null)
+            {
+                contentPanel.BackColor = DefaultBackground;
+
+                Color textColor = GetContrastColor(DefaultBackground);
+                SetControlForeColor(contentPanel, textColor);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (titleBar != null) titleBar.Dispose();
+                if (contentPanel != null) contentPanel.Dispose();
+                if (closeBtn != null) closeBtn.Dispose();
+                if (maxBtn != null) maxBtn.Dispose();
+                if (minBtn != null) minBtn.Dispose();
+                if (titleLabel != null) titleLabel.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

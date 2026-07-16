@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FlooxOC;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -11,17 +12,10 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "Bookmarks"
+            "MyOS95", "Bookmarks"
         );
-        private static string BookmarksFile = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "bookmarks.json"
-        );
-        private static string IconsFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox OC. Home version", "BookmarkIcons"
-        );
-
+        private static string BookmarksFile = Path.Combine(DataPath, "bookmarks.json");
+        private static string IconsFolder = Path.Combine(DataPath, "Icons");
         private static List<WebBookmark> bookmarks = new List<WebBookmark>();
 
         static BookmarkManager()
@@ -40,10 +34,18 @@ namespace FlooxOC
         {
             if (!string.IsNullOrEmpty(bookmark.IconPath) && File.Exists(bookmark.IconPath))
             {
-                string iconName = $"{bookmark.Id}.png";
-                string destPath = Path.Combine(IconsFolder, iconName);
-                File.Copy(bookmark.IconPath, destPath, true);
-                bookmark.IconPath = destPath;
+                try
+                {
+                    string iconName = $"{bookmark.Id}.png";
+                    string destPath = Path.Combine(IconsFolder, iconName);
+                    File.Copy(bookmark.IconPath, destPath, true);
+                    bookmark.IconPath = destPath;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка копирования иконки: {ex.Message}");
+                    bookmark.IconPath = "";
+                }
             }
 
             bookmarks.Add(bookmark);
@@ -55,8 +57,17 @@ namespace FlooxOC
             var bookmark = bookmarks.Find(b => b.Id == bookmarkId);
             if (bookmark != null)
             {
-                if (File.Exists(bookmark.IconPath))
-                    File.Delete(bookmark.IconPath);
+                try
+                {
+                    if (!string.IsNullOrEmpty(bookmark.IconPath) && File.Exists(bookmark.IconPath))
+                    {
+                        File.Delete(bookmark.IconPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Ошибка удаления иконки: {ex.Message}");
+                }
 
                 bookmarks.Remove(bookmark);
                 SaveBookmarks();
@@ -71,17 +82,22 @@ namespace FlooxOC
                 existing.Name = updated.Name;
                 existing.Url = updated.Url;
 
-                // Обновляем иконку
                 if (!string.IsNullOrEmpty(updated.IconPath) && File.Exists(updated.IconPath))
                 {
-                    // Удаляем старую иконку
-                    if (File.Exists(existing.IconPath))
-                        File.Delete(existing.IconPath);
+                    try
+                    {
+                        if (File.Exists(existing.IconPath))
+                            File.Delete(existing.IconPath);
 
-                    string iconName = $"{existing.Id}.png";
-                    string destPath = Path.Combine(IconsFolder, iconName);
-                    File.Copy(updated.IconPath, destPath, true);
-                    existing.IconPath = destPath;
+                        string iconName = $"{existing.Id}.png";
+                        string destPath = Path.Combine(IconsFolder, iconName);
+                        File.Copy(updated.IconPath, destPath, true);
+                        existing.IconPath = destPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Ошибка обновления иконки: {ex.Message}");
+                    }
                 }
 
                 SaveBookmarks();
@@ -90,13 +106,16 @@ namespace FlooxOC
 
         public static Image LoadBookmarkIcon(WebBookmark bookmark)
         {
-            if (!string.IsNullOrEmpty(bookmark.IconPath) && File.Exists(bookmark.IconPath))
+            try
             {
-                try
+                if (!string.IsNullOrEmpty(bookmark.IconPath) && File.Exists(bookmark.IconPath))
                 {
                     return Image.FromFile(bookmark.IconPath);
                 }
-                catch { return null; }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка загрузки иконки: {ex.Message}");
             }
             return null;
         }
@@ -105,7 +124,6 @@ namespace FlooxOC
         {
             try
             {
-                // Пытаемся загрузить favicon с сайта
                 Uri uri = new Uri(url);
                 string faviconUrl = $"https://www.google.com/s2/favicons?domain={uri.Host}&sz=64";
 
@@ -126,6 +144,18 @@ namespace FlooxOC
 
         public static void ClearAll()
         {
+            try
+            {
+                if (Directory.Exists(IconsFolder))
+                {
+                    foreach (string file in Directory.GetFiles(IconsFolder))
+                    {
+                        try { File.Delete(file); } catch { }
+                    }
+                }
+            }
+            catch { }
+
             bookmarks.Clear();
             SaveBookmarks();
         }
@@ -146,10 +176,26 @@ namespace FlooxOC
             }
             else
             {
-                // Добавляем стандартные закладки
+                // ===== СТАНДАРТНЫЕ ЗАКЛАДКИ (ЗАМЕНЕНЫ) =====
                 bookmarks = new List<WebBookmark>();
 
-                // Google
+                // Карта сервера
+                var map = new WebBookmark
+                {
+                    Name = "Карта сервера",
+                    Url = "http://188.127.241.249:25824"
+                };
+                bookmarks.Add(map);
+
+                // Информация о сервере
+                var serverInfo = new WebBookmark
+                {
+                    Name = "RassvetCraft",
+                    Url = "https://top-minecrafter.com/server/rassvetcraft/"
+                };
+                bookmarks.Add(serverInfo);
+
+                // Google (оставляем для удобства)
                 var google = new WebBookmark
                 {
                     Name = "Google",
@@ -157,27 +203,11 @@ namespace FlooxOC
                 };
                 bookmarks.Add(google);
 
-                // YouTube
-                var youtube = new WebBookmark
-                {
-                    Name = "YouTube",
-                    Url = "https://www.youtube.com"
-                };
-                bookmarks.Add(youtube);
-
-                // GitHub
-                var github = new WebBookmark
-                {
-                    Name = "GitHub",
-                    Url = "https://www.github.com"
-                };
-                bookmarks.Add(github);
-
                 SaveBookmarks();
             }
         }
 
-        private static void SaveBookmarks()
+        public static void SaveBookmarks()
         {
             try
             {
