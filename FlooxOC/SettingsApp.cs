@@ -9,15 +9,19 @@ namespace FlooxOC
 {
     public class SettingsApp : Panel
     {
-        private ColorDialog colorDialog;
-        private FlowLayoutPanel wallpaperPanel;
-        private Label labelStatus;
+        // ===== ПОЛЯ =====
         private Form1 mainForm;
         private Color selectedWallpaperColor;
         private Color selectedAppColor;
-        private Panel wallpaperPreviewPanel;
-        private Panel appPreviewPanel;
+        private ColorDialog colorDialog;
 
+        // ===== КОМПОНЕНТЫ =====
+        private Label labelStatus;
+        private Label lblUserInfo;
+        private TextBox txtNewName;
+        private TextBox txtNewPassword;
+
+        // ===== ЦВЕТА =====
         private Color[] wallpaperColors = new Color[]
         {
             Color.FromArgb(0, 128, 128), Color.FromArgb(0, 70, 140),
@@ -64,81 +68,10 @@ namespace FlooxOC
 
             selectedWallpaperColor = mainForm.BackColor;
             selectedAppColor = CustomWindow.DefaultBackground;
+            colorDialog = new ColorDialog();
 
             InitializeComponents();
-
-            // Применяем контрастные цвета
             ColorHelper.ApplyContrastToControls(this);
-        }
-
-        // ====== ПОЛНАЯ ОЧИСТКА КЭША ======
-        private void ClearCache(object sender, EventArgs e)
-        {
-            DialogResult result = MessageBox.Show(
-                "⚠️ ВНИМАНИЕ!\n\n" +
-                "Полная очистка кэша удалит ВСЕ данные:\n" +
-                "\n" +
-                "🔸 Все аккаунты и пароли\n" +
-                "🔸 Добавленные приложения и иконки\n" +
-                "🔸 Закладки и favicon\n" +
-                "🔸 Макеты рабочего стола\n" +
-                "🔸 Настройки системы\n" +
-                "🔸 Плейлисты\n" +
-                "\n" +
-                "После очистки приложение будет перезапущено.\n" +
-                "При следующем запуске потребуется АКТИВАЦИЯ и РЕГИСТРАЦИЯ.\n" +
-                "\n" +
-                "Продолжить?",
-                "Полная очистка кэша",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-
-            if (result == DialogResult.Yes)
-            {
-                try
-                {
-                    string appDataPath = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "Floox OC. Home Version");
-
-                    if (Directory.Exists(appDataPath))
-                    {
-                        Directory.Delete(appDataPath, true);
-
-                        MessageBox.Show(
-                            "✅ Кэш успешно очищен!\n\n" +
-                            "Приложение будет перезапущено.\n" +
-                            "При следующем запуске:\n" +
-                            "🔑 Потребуется активация\n" +
-                            "📝 Регистрация нового аккаунта\n" +
-                            "🎨 Настройки по умолчанию",
-                            "Успех",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show(
-                            "Папка с данными не найдена.\n" +
-                            "Возможно, она уже была удалена.",
-                            "Информация",
-                            MessageBoxButtons.OK,
-                            MessageBoxIcon.Information);
-                    }
-
-                    Application.Restart();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(
-                        $"Ошибка при очистке кэша:\n{ex.Message}\n\n" +
-                        "Попробуйте удалить папку вручную:\n" +
-                        $"{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Floox OC. Home Version")}",
-                        "Ошибка",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }
-            }
         }
 
         private void InitializeComponents()
@@ -154,259 +87,103 @@ namespace FlooxOC
             this.Controls.Add(title);
             y += 50;
 
-            // ===== ФОН РАБОЧЕГО СТОЛА =====
-            Label lblWallpaper = new Label();
-            lblWallpaper.Text = "Фон рабочего стола:";
-            lblWallpaper.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblWallpaper.Location = new Point(10, y);
-            lblWallpaper.Size = new Size(180, 25);
-            this.Controls.Add(lblWallpaper);
-            y += 30;
-
-            wallpaperPanel = new FlowLayoutPanel();
-            wallpaperPanel.Location = new Point(10, y);
-            wallpaperPanel.Size = new Size(530, 180);
-            wallpaperPanel.AutoScroll = true;
-            wallpaperPanel.BackColor = Color.FromArgb(220, 220, 220);
-            wallpaperPanel.Padding = new Padding(5);
-            wallpaperPanel.FlowDirection = FlowDirection.LeftToRight;
-            wallpaperPanel.WrapContents = true;
-            this.Controls.Add(wallpaperPanel);
-
-            for (int i = 0; i < wallpaperColors.Length; i++)
-            {
-                Button colorBtn = new Button();
-                colorBtn.Size = new Size(45, 40);
-                colorBtn.BackColor = wallpaperColors[i];
-                colorBtn.FlatStyle = FlatStyle.Flat;
-                colorBtn.FlatAppearance.BorderSize = 1;
-                colorBtn.FlatAppearance.BorderColor = Color.Black;
-                colorBtn.Cursor = Cursors.Hand;
-                colorBtn.Tag = wallpaperColors[i];
-                colorBtn.ForeColor = ColorHelper.GetContrastTextColor(wallpaperColors[i]);
-
-                ToolTip toolTip = new ToolTip();
-                toolTip.SetToolTip(colorBtn, wallpaperNames[i]);
-
-                int index = i;
-                colorBtn.Click += (s, e) => SetWallpaper(wallpaperColors[index]);
-
-                if (wallpaperColors[i].ToArgb() == selectedWallpaperColor.ToArgb())
-                {
-                    colorBtn.FlatAppearance.BorderSize = 3;
-                    colorBtn.FlatAppearance.BorderColor = Color.White;
-                }
-
-                wallpaperPanel.Controls.Add(colorBtn);
-            }
-
-            y += 190;
-
-            wallpaperPreviewPanel = new Panel();
-            wallpaperPreviewPanel.Size = new Size(60, 40);
-            wallpaperPreviewPanel.Location = new Point(10, y);
-            wallpaperPreviewPanel.BackColor = selectedWallpaperColor;
-            wallpaperPreviewPanel.BorderStyle = BorderStyle.Fixed3D;
-            this.Controls.Add(wallpaperPreviewPanel);
-
-            Button customColorBtn = new Button();
-            customColorBtn.Text = "🎨 Свой цвет...";
-            customColorBtn.Size = new Size(130, 40);
-            customColorBtn.Location = new Point(80, y);
-            customColorBtn.FlatStyle = FlatStyle.Flat;
-            customColorBtn.BackColor = Color.FromArgb(0, 120, 215);
-            customColorBtn.ForeColor = ColorHelper.GetContrastTextColor(customColorBtn.BackColor);
-            customColorBtn.Cursor = Cursors.Hand;
-            customColorBtn.Click += ChooseCustomWallpaper;
-            this.Controls.Add(customColorBtn);
-
-            y += 60;
-
-            // ===== ФОН ПРИЛОЖЕНИЙ =====
-            Label lblAppBg = new Label();
-            lblAppBg.Text = "Фон приложений:";
-            lblAppBg.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblAppBg.Location = new Point(10, y);
-            lblAppBg.Size = new Size(180, 25);
-            this.Controls.Add(lblAppBg);
-            y += 30;
-
-            appPreviewPanel = new Panel();
-            appPreviewPanel.Size = new Size(60, 40);
-            appPreviewPanel.Location = new Point(10, y);
-            appPreviewPanel.BackColor = selectedAppColor;
-            appPreviewPanel.BorderStyle = BorderStyle.Fixed3D;
-            this.Controls.Add(appPreviewPanel);
-
-            Button appColorBtn = new Button();
-            appColorBtn.Text = "Выбрать цвет...";
-            appColorBtn.Size = new Size(130, 40);
-            appColorBtn.Location = new Point(80, y);
-            appColorBtn.FlatStyle = FlatStyle.Flat;
-            appColorBtn.BackColor = Color.FromArgb(0, 150, 80);
-            appColorBtn.ForeColor = ColorHelper.GetContrastTextColor(appColorBtn.BackColor);
-            appColorBtn.Cursor = Cursors.Hand;
-            appColorBtn.Click += ChooseAppBackground;
-            this.Controls.Add(appColorBtn);
-
-            y += 60;
-
-            // ===== НАСТРОЙКИ АККАУНТА =====
-            Label lblAccount = new Label();
-            lblAccount.Text = "👤 Аккаунт:";
-            lblAccount.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblAccount.Location = new Point(10, y);
-            lblAccount.Size = new Size(180, 25);
-            this.Controls.Add(lblAccount);
-            y += 30;
-
-            var user = AccountManager.GetCurrentUser();
-            Label lblUser = new Label();
-            lblUser.Text = $"Пользователь: {user?.UserName ?? "Гость"}";
-            lblUser.Location = new Point(20, y);
-            lblUser.Size = new Size(250, 25);
-            lblUser.Font = new Font("Segoe UI", 9);
-            this.Controls.Add(lblUser);
-            y += 30;
-
-            CheckBox chkRequirePassword = new CheckBox();
-            chkRequirePassword.Text = "🔒 Требовать пароль при входе";
-            chkRequirePassword.Location = new Point(20, y);
-            chkRequirePassword.Size = new Size(220, 25);
-            chkRequirePassword.Checked = AccountManager.RequirePassword;
-            chkRequirePassword.CheckedChanged += (s, e) =>
-            {
-                AccountManager.RequirePassword = chkRequirePassword.Checked;
-                labelStatus.Text = "Настройка сохранена";
-                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
-            };
-            this.Controls.Add(chkRequirePassword);
-            y += 30;
-
-            CheckBox chkAutoLogin = new CheckBox();
-            chkAutoLogin.Text = "🚀 Автоматический вход";
-            chkAutoLogin.Location = new Point(20, y);
-            chkAutoLogin.Size = new Size(180, 25);
-            chkAutoLogin.Checked = AccountManager.AutoLogin;
-            chkAutoLogin.CheckedChanged += (s, e) =>
-            {
-                AccountManager.AutoLogin = chkAutoLogin.Checked;
-                labelStatus.Text = "Настройка сохранена";
-                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
-            };
-            this.Controls.Add(chkAutoLogin);
-
-            Label lblAutoLoginHint = new Label();
-            lblAutoLoginHint.Text = "(вход без пароля при запуске)";
-            lblAutoLoginHint.Location = new Point(200, y);
-            lblAutoLoginHint.Size = new Size(180, 25);
-            lblAutoLoginHint.Font = new Font("Segoe UI", 8);
-            lblAutoLoginHint.ForeColor = Color.DimGray;
-            this.Controls.Add(lblAutoLoginHint);
-            y += 30;
-
-            Label lblAttempts = new Label();
-            lblAttempts.Text = "Максимум попыток входа:";
-            lblAttempts.Location = new Point(20, y);
-            lblAttempts.Size = new Size(160, 25);
-            lblAttempts.Font = new Font("Segoe UI", 9);
-            this.Controls.Add(lblAttempts);
-
-            NumericUpDown nudAttempts = new NumericUpDown();
-            nudAttempts.Location = new Point(185, y);
-            nudAttempts.Size = new Size(60, 25);
-            nudAttempts.Minimum = 1;
-            nudAttempts.Maximum = 10;
-            nudAttempts.Value = AccountManager.MaxLoginAttempts;
-            nudAttempts.ValueChanged += (s, e) =>
-            {
-                AccountManager.MaxLoginAttempts = (int)nudAttempts.Value;
-                labelStatus.Text = "Настройка сохранена";
-                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
-            };
-            this.Controls.Add(nudAttempts);
-
-            Label lblAttemptsHint = new Label();
-            lblAttemptsHint.Text = "(1-10)";
-            lblAttemptsHint.Location = new Point(250, y);
-            lblAttemptsHint.Size = new Size(50, 25);
-            lblAttemptsHint.Font = new Font("Segoe UI", 8);
-            lblAttemptsHint.ForeColor = Color.DimGray;
-            this.Controls.Add(lblAttemptsHint);
+            // ===== РАЗДЕЛ 1: ПЕРСОНАЛИЗАЦИЯ =====
+            Label sectionPersonalization = new Label();
+            sectionPersonalization.Text = "👤 Персонализация";
+            sectionPersonalization.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            sectionPersonalization.Location = new Point(10, y);
+            sectionPersonalization.Size = new Size(400, 30);
+            this.Controls.Add(sectionPersonalization);
             y += 40;
 
-            // КНОПКА СМЕНЫ ПАРОЛЯ
-            Button btnChangePassword = new Button();
-            btnChangePassword.Text = "🔑 Сменить пароль";
-            btnChangePassword.Size = new Size(160, 35);
-            btnChangePassword.Location = new Point(20, y);
+            // Информация о пользователе
+            var user = AccountManager.GetCurrentUser();
+            lblUserInfo = new Label();
+            lblUserInfo.Text = $"Имя: {user?.UserName ?? "Гость"} | Логин: {user?.Login ?? "Нет"}";
+            lblUserInfo.Font = new Font("Segoe UI", 10);
+            lblUserInfo.Location = new Point(20, y);
+            lblUserInfo.Size = new Size(400, 25);
+            this.Controls.Add(lblUserInfo);
+            y += 35;
+
+            // Кнопка выбора цвета фона
+            Button btnWallpaperColor = CreateStyledButton("🎨 Цвет фона рабочего стола", new Point(20, y), new Size(220, 35));
+            btnWallpaperColor.Click += (s, e) => ShowColorPickerDialog("фон рабочего стола", selectedWallpaperColor, SetWallpaperColor);
+            this.Controls.Add(btnWallpaperColor);
+
+            // Кнопка выбора цвета приложений
+            Button btnAppColor = CreateStyledButton("🎨 Цвет фона приложений", new Point(250, y), new Size(220, 35));
+            btnAppColor.Click += (s, e) => ShowColorPickerDialog("фон приложений", selectedAppColor, SetAppColor);
+            this.Controls.Add(btnAppColor);
+            y += 50;
+
+            // ===== РАЗДЕЛИТЕЛЬ =====
+            this.Controls.Add(CreateSeparator(new Point(10, y), new Size(560, 2)));
+            y += 20;
+
+            // ===== РАЗДЕЛ 2: ПОЛЬЗОВАТЕЛЬ =====
+            Label sectionUser = new Label();
+            sectionUser.Text = "🔐 Пользователь";
+            sectionUser.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            sectionUser.Location = new Point(10, y);
+            sectionUser.Size = new Size(400, 30);
+            this.Controls.Add(sectionUser);
+            y += 40;
+
+            // Смена имени
+            Label lblName = new Label();
+            lblName.Text = "Новое имя:";
+            lblName.Font = new Font("Segoe UI", 10);
+            lblName.Location = new Point(20, y);
+            lblName.Size = new Size(100, 25);
+            this.Controls.Add(lblName);
+
+            txtNewName = new TextBox();
+            txtNewName.Location = new Point(125, y);
+            txtNewName.Size = new Size(200, 25);
+            txtNewName.Font = new Font("Segoe UI", 10);
+            txtNewName.Text = user?.UserName ?? "";
+            this.Controls.Add(txtNewName);
+
+            Button btnChangeName = CreateStyledButton("✅ Сменить имя", new Point(335, y), new Size(120, 25));
+            btnChangeName.Click += (s, e) => ChangeUserName(txtNewName.Text);
+            this.Controls.Add(btnChangeName);
+            y += 40;
+
+            // Кнопка смены пароля
+            Button btnChangePassword = CreateStyledButton("🔑 Сменить пароль", new Point(20, y), new Size(200, 35));
             btnChangePassword.BackColor = Color.FromArgb(255, 180, 0);
             btnChangePassword.ForeColor = ColorHelper.GetContrastTextColor(btnChangePassword.BackColor);
-            btnChangePassword.FlatStyle = FlatStyle.Flat;
-            btnChangePassword.Cursor = Cursors.Hand;
-            btnChangePassword.Click += ChangePassword;
+            btnChangePassword.Click += (s, e) => ShowChangePasswordDialog();
             this.Controls.Add(btnChangePassword);
-            y += 45;
-
-            // КНОПКА ВЫХОДА
-            Button btnLogout = new Button();
-            btnLogout.Text = "🚪 Выйти из аккаунта";
-            btnLogout.Size = new Size(160, 35);
-            btnLogout.Location = new Point(20, y);
-            btnLogout.BackColor = Color.FromArgb(200, 80, 80);
-            btnLogout.ForeColor = ColorHelper.GetContrastTextColor(btnLogout.BackColor);
-            btnLogout.FlatStyle = FlatStyle.Flat;
-            btnLogout.Cursor = Cursors.Hand;
-            btnLogout.Click += (s, e) =>
-            {
-                DialogResult result = MessageBox.Show("Выйти из аккаунта?", "Подтверждение",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
-                {
-                    AccountManager.Logout();
-                    Application.Restart();
-                }
-            };
-            this.Controls.Add(btnLogout);
             y += 50;
 
-            // ===== КНОПКИ ДЕЙСТВИЙ =====
-            Button resetIconsBtn = new Button();
-            resetIconsBtn.Text = "🔄 Вернуть иконки в стандартное положение";
-            resetIconsBtn.Size = new Size(280, 40);
-            resetIconsBtn.Location = new Point(10, y);
-            resetIconsBtn.FlatStyle = FlatStyle.Flat;
-            resetIconsBtn.BackColor = Color.FromArgb(255, 180, 0);
-            resetIconsBtn.ForeColor = ColorHelper.GetContrastTextColor(resetIconsBtn.BackColor);
-            resetIconsBtn.Cursor = Cursors.Hand;
-            resetIconsBtn.Click += ResetIcons;
-            this.Controls.Add(resetIconsBtn);
-            y += 50;
+            // ===== РАЗДЕЛИТЕЛЬ =====
+            this.Controls.Add(CreateSeparator(new Point(10, y), new Size(560, 2)));
+            y += 20;
 
-            Button resetAllBtn = new Button();
-            resetAllBtn.Text = "⚠️ Сбросить все настройки";
-            resetAllBtn.Size = new Size(280, 40);
-            resetAllBtn.Location = new Point(10, y);
-            resetAllBtn.FlatStyle = FlatStyle.Flat;
-            resetAllBtn.BackColor = Color.FromArgb(200, 50, 50);
-            resetAllBtn.ForeColor = ColorHelper.GetContrastTextColor(resetAllBtn.BackColor);
-            resetAllBtn.Cursor = Cursors.Hand;
-            resetAllBtn.Click += ResetAll;
-            this.Controls.Add(resetAllBtn);
+            // ===== РАЗДЕЛ 3: СИСТЕМА =====
+            Label sectionSystem = new Label();
+            sectionSystem.Text = "🖥️ Система";
+            sectionSystem.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+            sectionSystem.Location = new Point(10, y);
+            sectionSystem.Size = new Size(400, 30);
+            this.Controls.Add(sectionSystem);
+            y += 40;
+
+            // Автоматическая расстановка иконок
+            Button btnAutoArrange = CreateStyledButton("🔄 Автоматическая расстановка иконок", new Point(20, y), new Size(250, 40));
+            btnAutoArrange.Click += (s, e) => AutoArrangeIcons();
+            this.Controls.Add(btnAutoArrange);
+            y += 55;
+
+            // Очистка устройства
+            Button btnClearDevice = CreateStyledButton("🗑️ Очистка устройства", new Point(20, y), new Size(250, 40));
+            btnClearDevice.BackColor = Color.FromArgb(200, 50, 50);
+            btnClearDevice.ForeColor = ColorHelper.GetContrastTextColor(btnClearDevice.BackColor);
+            btnClearDevice.Click += (s, e) => ClearDevice();
+            this.Controls.Add(btnClearDevice);
             y += 60;
-
-            // ===== КНОПКА ПОЛНОЙ ОЧИСТКИ КЭША =====
-            Button btnClearCache = new Button();
-            btnClearCache.Text = "🗑️ Полная очистка кэша";
-            btnClearCache.Size = new Size(280, 40);
-            btnClearCache.Location = new Point(10, y);
-            btnClearCache.FlatStyle = FlatStyle.Flat;
-            btnClearCache.BackColor = Color.FromArgb(150, 50, 150);
-            btnClearCache.ForeColor = ColorHelper.GetContrastTextColor(btnClearCache.BackColor);
-            btnClearCache.Cursor = Cursors.Hand;
-            btnClearCache.Click += ClearCache;
-            this.Controls.Add(btnClearCache);
-            y += 50;
 
             // ===== СТАТУС =====
             labelStatus = new Label();
@@ -417,15 +194,97 @@ namespace FlooxOC
             labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             this.Controls.Add(labelStatus);
 
-            colorDialog = new ColorDialog();
-
-            // Применяем контрастные цвета ко всем контролам
+            // Применяем контрастные цвета
             ColorHelper.ApplyContrastToControls(this);
         }
 
-        // ====== МЕТОДЫ ======
+        // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+        private Button CreateStyledButton(string text, Point location, Size size)
+        {
+            return new Button
+            {
+                Text = text,
+                Location = location,
+                Size = size,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(0, 120, 215),
+                ForeColor = ColorHelper.GetContrastTextColor(Color.FromArgb(0, 120, 215)),
+                Font = new Font("Segoe UI", 9),
+                Cursor = Cursors.Hand
+            };
+        }
 
-        private void SetWallpaper(Color color)
+        private Panel CreateSeparator(Point location, Size size)
+        {
+            return new Panel
+            {
+                Location = location,
+                Size = size,
+                BackColor = Color.FromArgb(128, 128, 128)
+            };
+        }
+
+        // ===== ДИАЛОГ ВЫБОРА ЦВЕТА (32 цвета плитками) =====
+        private void ShowColorPickerDialog(string title, Color currentColor, Action<Color> onColorSelected)
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = $"Выбор цвета для {title}";
+                dialog.Size = new Size(520, 420);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                FlowLayoutPanel panel = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(10),
+                    AutoScroll = true,
+                    FlowDirection = FlowDirection.LeftToRight,
+                    WrapContents = true,
+                    BackColor = Color.FromArgb(220, 220, 220)
+                };
+
+                for (int i = 0; i < wallpaperColors.Length; i++)
+                {
+                    Button colorBtn = new Button();
+                    colorBtn.Size = new Size(55, 50);
+                    colorBtn.BackColor = wallpaperColors[i];
+                    colorBtn.FlatStyle = FlatStyle.Flat;
+                    colorBtn.FlatAppearance.BorderSize = 1;
+                    colorBtn.FlatAppearance.BorderColor = Color.Black;
+                    colorBtn.Cursor = Cursors.Hand;
+                    colorBtn.Tag = wallpaperColors[i];
+
+                    ToolTip toolTip = new ToolTip();
+                    toolTip.SetToolTip(colorBtn, wallpaperNames[i]);
+
+                    int index = i;
+                    colorBtn.Click += (s, e) =>
+                    {
+                        onColorSelected(wallpaperColors[index]);
+                        dialog.Close();
+                    };
+
+                    if (wallpaperColors[i].ToArgb() == currentColor.ToArgb())
+                    {
+                        colorBtn.FlatAppearance.BorderSize = 3;
+                        colorBtn.FlatAppearance.BorderColor = Color.White;
+                    }
+
+                    panel.Controls.Add(colorBtn);
+                }
+
+                dialog.Controls.Add(panel);
+                ColorHelper.ApplyContrastToControls(dialog);
+                dialog.ShowDialog();
+            }
+        }
+
+        // ===== УСТАНОВКА ЦВЕТА ФОНА =====
+        private void SetWallpaperColor(Color color)
         {
             if (mainForm != null)
             {
@@ -433,33 +292,90 @@ namespace FlooxOC
                 mainForm.SaveWallpaperColor(color);
                 selectedWallpaperColor = color;
 
-                if (wallpaperPreviewPanel != null)
-                {
-                    wallpaperPreviewPanel.BackColor = color;
-                }
-
-                foreach (Control btn in wallpaperPanel.Controls)
-                {
-                    if (btn is Button b)
-                    {
-                        b.ForeColor = ColorHelper.GetContrastTextColor(b.BackColor);
-                        if (b.BackColor.ToArgb() == color.ToArgb())
-                        {
-                            b.FlatAppearance.BorderSize = 3;
-                            b.FlatAppearance.BorderColor = Color.White;
-                        }
-                        else
-                        {
-                            b.FlatAppearance.BorderSize = 1;
-                            b.FlatAppearance.BorderColor = Color.Black;
-                        }
-                    }
-                }
+                // ===== ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВСЕ ЦВЕТА =====
+                ColorHelper.ApplyContrastToControls(mainForm);
+                mainForm.Refresh();
 
                 labelStatus.Text = $"Фон изменён на {GetColorName(color)}";
                 labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
                 ColorHelper.ApplyContrastToControls(this);
+                this.Refresh();
             }
+        }
+
+        // ===== УСТАНОВКА ЦВЕТА ПРИЛОЖЕНИЙ (ИСПРАВЛЕНО) =====
+        private void SetAppColor(Color color)
+        {
+            selectedAppColor = color;
+            CustomWindow.DefaultBackground = color;
+
+            // ===== ОБНОВЛЯЕМ ВСЕ ОТКРЫТЫЕ ОКНА В РЕАЛЬНОМ ВРЕМЕНИ =====
+            // Проходим по всем формам и обновляем каждое окно
+            foreach (Form form in Application.OpenForms)
+            {
+                // Обновляем все CustomWindow на форме
+                List<CustomWindow> windowsToUpdate = new List<CustomWindow>();
+                foreach (Control ctrl in form.Controls)
+                {
+                    if (ctrl is CustomWindow window)
+                    {
+                        windowsToUpdate.Add(window);
+                    }
+                }
+
+                // Обновляем каждое окно
+                foreach (var window in windowsToUpdate)
+                {
+                    // Обновляем фон окна
+                    window.BackColor = color;
+
+                    // Обновляем фон контента
+                    if (window.ContentControl != null)
+                    {
+                        window.ContentControl.BackColor = color;
+
+                        // Применяем контрастные цвета ко всем дочерним контролам
+                        ColorHelper.ApplyContrastToControls(window.ContentControl);
+                        window.ContentControl.Refresh();
+                    }
+
+                    // Обновляем панель контента
+                    foreach (Control ctrl in window.Controls)
+                    {
+                        if (ctrl is Panel panel && panel.Dock == DockStyle.Fill)
+                        {
+                            panel.BackColor = color;
+                            ColorHelper.ApplyContrastToControls(panel);
+                            panel.Refresh();
+                        }
+                    }
+
+                    // Обновляем заголовок
+                    foreach (Control ctrl in window.Controls)
+                    {
+                        if (ctrl is Panel titleBar)
+                        {
+                            foreach (Control titleCtrl in titleBar.Controls)
+                            {
+                                if (titleCtrl is Label titleLabel)
+                                {
+                                    titleLabel.ForeColor = ColorHelper.GetContrastTextColor(color);
+                                    titleLabel.Refresh();
+                                }
+                            }
+                        }
+                    }
+
+                    window.Refresh();
+                }
+            }
+
+            // Обновляем текущую панель настроек
+            ColorHelper.ApplyContrastToControls(this);
+            this.Refresh();
+
+            labelStatus.Text = $"Цвет фона приложений изменён";
+            labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
         }
 
         private string GetColorName(Color color)
@@ -474,87 +390,56 @@ namespace FlooxOC
             return color.Name;
         }
 
-        private void ChooseCustomWallpaper(object sender, EventArgs e)
+        // ===== СМЕНА ИМЕНИ =====
+        private void ChangeUserName(string newName)
         {
-            if (colorDialog.ShowDialog() == DialogResult.OK)
+            if (string.IsNullOrWhiteSpace(newName))
             {
-                SetWallpaper(colorDialog.Color);
+                MessageBox.Show("Имя не может быть пустым!", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var user = AccountManager.GetCurrentUser();
+            if (user == null)
+            {
+                MessageBox.Show("Пользователь не найден!", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            try
+            {
+                var accounts = AccountManager.GetAllUsers();
+                var userToUpdate = accounts.Find(a => a.Login == user.Login);
+                if (userToUpdate != null)
+                {
+                    userToUpdate.UserName = newName;
+                    user.UserName = newName;
+
+                    string accountsPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Floox OC. Home Version", "Accounts", "accounts.json");
+
+                    string json = System.Text.Json.JsonSerializer.Serialize(accounts,
+                        new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(accountsPath, json);
+
+                    labelStatus.Text = $"✅ Имя изменено на '{newName}'";
+                    labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+
+                    RefreshUserInfo();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void ChooseAppBackground(object sender, EventArgs e)
-        {
-            if (colorDialog.ShowDialog() == DialogResult.OK)
-            {
-                selectedAppColor = colorDialog.Color;
-
-                if (appPreviewPanel != null)
-                {
-                    appPreviewPanel.BackColor = selectedAppColor;
-                }
-
-                CustomWindow.DefaultBackground = selectedAppColor;
-                CustomWindow.UpdateAllWindows();
-
-                labelStatus.Text = "Цвет фона приложений изменён";
-                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
-                ColorHelper.ApplyContrastToControls(this);
-            }
-        }
-
-        private void UpdateOpenWindows()
-        {
-            if (mainForm == null) return;
-
-            foreach (Control ctrl in mainForm.Controls)
-            {
-                if (ctrl is CustomWindow window)
-                {
-                    window.BackColor = CustomWindow.DefaultBackground;
-
-                    if (window.ContentControl != null)
-                    {
-                        window.ContentControl.BackColor = CustomWindow.DefaultBackground;
-                        Color textColor = ColorHelper.GetContrastTextColor(CustomWindow.DefaultBackground);
-                        SetControlForeColor(window.ContentControl, textColor);
-                    }
-                }
-            }
-        }
-
-        private void SetControlForeColor(Control control, Color color)
-        {
-            foreach (Control child in control.Controls)
-            {
-                if (child is Label label)
-                {
-                    label.ForeColor = color;
-                }
-                else if (child is TextBox textBox)
-                {
-                    textBox.ForeColor = color;
-                }
-                else if (child is RichTextBox richTextBox)
-                {
-                    richTextBox.ForeColor = color;
-                }
-                else if (child is Button button)
-                {
-                    button.ForeColor = ColorHelper.GetContrastTextColor(button.BackColor);
-                }
-                else if (child is CheckBox checkBox)
-                {
-                    checkBox.ForeColor = color;
-                }
-                else
-                {
-                    SetControlForeColor(child, color);
-                }
-            }
-        }
-
-        // ====== СМЕНА ПАРОЛЯ ======
-        private void ChangePassword(object sender, EventArgs e)
+        // ===== ДИАЛОГ СМЕНЫ ПАРОЛЯ =====
+        private void ShowChangePasswordDialog()
         {
             var user = AccountManager.GetCurrentUser();
             if (user == null)
@@ -566,8 +451,8 @@ namespace FlooxOC
 
             using (Form dialog = new Form())
             {
-                dialog.Text = "Смена пароля";
-                dialog.Size = new Size(400, 220);
+                dialog.Text = "🔑 Смена пароля";
+                dialog.Size = new Size(420, 280);
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
@@ -576,182 +461,341 @@ namespace FlooxOC
 
                 int dlgY = 20;
 
+                // ===== ТЕКУЩИЙ ПАРОЛЬ =====
                 Label lblOld = new Label();
-                lblOld.Text = "Старый пароль:";
+                lblOld.Text = "Текущий пароль:";
+                lblOld.Font = new Font("Segoe UI", 10);
                 lblOld.Location = new Point(20, dlgY);
-                lblOld.Size = new Size(100, 25);
+                lblOld.Size = new Size(130, 25);
                 dialog.Controls.Add(lblOld);
 
                 TextBox txtOld = new TextBox();
-                txtOld.Location = new Point(130, dlgY);
+                txtOld.Location = new Point(160, dlgY);
                 txtOld.Size = new Size(230, 25);
+                txtOld.Font = new Font("Segoe UI", 10);
                 txtOld.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtOld);
-                dlgY += 40;
+                dlgY += 45;
 
+                // ===== НОВЫЙ ПАРОЛЬ =====
                 Label lblNew = new Label();
                 lblNew.Text = "Новый пароль:";
+                lblNew.Font = new Font("Segoe UI", 10);
                 lblNew.Location = new Point(20, dlgY);
-                lblNew.Size = new Size(100, 25);
+                lblNew.Size = new Size(130, 25);
                 dialog.Controls.Add(lblNew);
 
                 TextBox txtNew = new TextBox();
-                txtNew.Location = new Point(130, dlgY);
+                txtNew.Location = new Point(160, dlgY);
                 txtNew.Size = new Size(230, 25);
+                txtNew.Font = new Font("Segoe UI", 10);
                 txtNew.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtNew);
-                dlgY += 40;
+                dlgY += 45;
 
+                // ===== ПОДТВЕРЖДЕНИЕ ПАРОЛЯ =====
                 Label lblConfirm = new Label();
                 lblConfirm.Text = "Подтвердите:";
+                lblConfirm.Font = new Font("Segoe UI", 10);
                 lblConfirm.Location = new Point(20, dlgY);
-                lblConfirm.Size = new Size(100, 25);
+                lblConfirm.Size = new Size(130, 25);
                 dialog.Controls.Add(lblConfirm);
 
                 TextBox txtConfirm = new TextBox();
-                txtConfirm.Location = new Point(130, dlgY);
+                txtConfirm.Location = new Point(160, dlgY);
                 txtConfirm.Size = new Size(230, 25);
+                txtConfirm.Font = new Font("Segoe UI", 10);
                 txtConfirm.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtConfirm);
-                dlgY += 40;
+                dlgY += 50;
 
+                // ===== КНОПКИ =====
                 Button btnOk = new Button();
-                btnOk.Text = "Изменить";
-                btnOk.Location = new Point(150, dlgY);
-                btnOk.Size = new Size(100, 30);
-                btnOk.BackColor = Color.FromArgb(0, 120, 215);
+                btnOk.Text = "✅ Подтвердить";
+                btnOk.Size = new Size(120, 35);
+                btnOk.Location = new Point(100, dlgY);
+                btnOk.BackColor = Color.FromArgb(0, 150, 80);
                 btnOk.ForeColor = ColorHelper.GetContrastTextColor(btnOk.BackColor);
                 btnOk.FlatStyle = FlatStyle.Flat;
+                btnOk.Cursor = Cursors.Hand;
                 btnOk.Click += (s, ev) =>
                 {
                     string oldPass = txtOld.Text;
                     string newPass = txtNew.Text;
                     string confirm = txtConfirm.Text;
 
-                    if (AccountManager.RequirePassword)
+                    // Проверяем текущий пароль
+                    if (string.IsNullOrEmpty(oldPass))
                     {
-                        if (string.IsNullOrEmpty(oldPass))
-                        {
-                            MessageBox.Show("Введите старый пароль!", "Ошибка",
-                                MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-
-                        string oldHash = AccountManager.HashPassword(oldPass);
-                        if (oldHash != user.PasswordHash)
-                        {
-                            MessageBox.Show("Неверный старый пароль!", "Ошибка",
-                                MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(newPass))
-                    {
-                        MessageBox.Show("Введите новый пароль!", "Ошибка",
+                        MessageBox.Show("Введите текущий пароль!", "Ошибка",
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
-                    if (newPass != confirm)
+                    string oldHash = AccountManager.HashPassword(oldPass);
+                    if (oldHash != user.PasswordHash)
                     {
-                        MessageBox.Show("Пароли не совпадают!", "Ошибка",
+                        MessageBox.Show("❌ Неверный текущий пароль!", "Ошибка",
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        txtOld.Clear();
+                        txtOld.Focus();
                         return;
                     }
 
-                    if (newPass.Length < 3)
+                    // Проверяем новый пароль
+                    if (string.IsNullOrEmpty(newPass) || newPass.Length < 3)
                     {
                         MessageBox.Show("Пароль должен содержать минимум 3 символа!", "Ошибка",
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
 
-                    var accounts = AccountManager.GetAllUsers();
-                    var userToUpdate = accounts.Find(a => a.Login == user.Login);
-                    if (userToUpdate != null)
+                    if (newPass != confirm)
                     {
-                        userToUpdate.PasswordHash = AccountManager.HashPassword(newPass);
-                        string accountsPath = Path.Combine(
-                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                            "Floox OC. Home Version", "Accounts", "accounts.json");
+                        MessageBox.Show("❌ Пароли не совпадают!", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        txtConfirm.Clear();
+                        txtConfirm.Focus();
+                        return;
+                    }
 
-                        string json = System.Text.Json.JsonSerializer.Serialize(accounts,
-                            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(accountsPath, json);
+                    // Сохраняем новый пароль
+                    try
+                    {
+                        var accounts = AccountManager.GetAllUsers();
+                        var userToUpdate = accounts.Find(a => a.Login == user.Login);
+                        if (userToUpdate != null)
+                        {
+                            userToUpdate.PasswordHash = AccountManager.HashPassword(newPass);
 
-                        MessageBox.Show("Пароль успешно изменён!", "Успех",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        dialog.Close();
+                            string accountsPath = Path.Combine(
+                                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                                "Floox OC. Home Version", "Accounts", "accounts.json");
+
+                            string json = System.Text.Json.JsonSerializer.Serialize(accounts,
+                                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                            File.WriteAllText(accountsPath, json);
+
+                            MessageBox.Show("✅ Пароль успешно изменён!", "Успех",
+                                MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                            labelStatus.Text = "✅ Пароль изменён!";
+                            labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+
+                            dialog.DialogResult = DialogResult.OK;
+                            dialog.Close();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 };
                 dialog.Controls.Add(btnOk);
 
                 Button btnCancel = new Button();
                 btnCancel.Text = "Отмена";
-                btnCancel.Location = new Point(260, dlgY);
-                btnCancel.Size = new Size(100, 30);
+                btnCancel.Size = new Size(100, 35);
+                btnCancel.Location = new Point(230, dlgY);
                 btnCancel.FlatStyle = FlatStyle.Flat;
+                btnCancel.Cursor = Cursors.Hand;
                 btnCancel.Click += (s, ev) => dialog.Close();
                 dialog.Controls.Add(btnCancel);
 
                 ColorHelper.ApplyContrastToControls(dialog);
 
+                // Enter для быстрого подтверждения
+                txtConfirm.KeyPress += (s, ev) =>
+                {
+                    if (ev.KeyChar == (char)Keys.Enter)
+                        btnOk.PerformClick();
+                };
+                txtNew.KeyPress += (s, ev) =>
+                {
+                    if (ev.KeyChar == (char)Keys.Enter)
+                        txtConfirm.Focus();
+                };
+                txtOld.KeyPress += (s, ev) =>
+                {
+                    if (ev.KeyChar == (char)Keys.Enter)
+                        txtNew.Focus();
+                };
+
                 dialog.ShowDialog();
             }
         }
 
-        private void ResetIcons(object sender, EventArgs e)
+        // ===== ОБНОВЛЕНИЕ ИНФОРМАЦИИ О ПОЛЬЗОВАТЕЛЕ =====
+        private void RefreshUserInfo()
+        {
+            var user = AccountManager.GetCurrentUser();
+            if (user != null && lblUserInfo != null)
+            {
+                lblUserInfo.Text = $"Имя: {user.UserName} | Логин: {user.Login}";
+            }
+        }
+
+        // ===== АВТОМАТИЧЕСКАЯ РАССТАНОВКА ИКОНОК =====
+        private void AutoArrangeIcons()
         {
             DialogResult result = MessageBox.Show(
-                "Вернуть все иконки в стандартное положение?",
-                "Подтверждение",
+                "Автоматически расставить иконки на рабочем столе?\n\n" +
+                "⚠️ Иконки будут выровнены по сетке, но НЕ УДАЛЕНЫ.",
+                "Расстановка иконок",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
             if (result == DialogResult.Yes)
             {
                 mainForm.ResetIconsToDefault();
-                labelStatus.Text = "Иконки восстановлены!";
+                labelStatus.Text = "✅ Иконки расставлены!";
                 labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             }
         }
 
-        private void ResetAll(object sender, EventArgs e)
+        // ===== ОЧИСТКА УСТРОЙСТВА =====
+        private void ClearDevice()
         {
-            DialogResult result = MessageBox.Show(
-                "⚠️ ВНИМАНИЕ!\n\nСбросить все настройки?",
-                "Сброс всех настроек",
+            using (Form passwordDialog = new Form())
+            {
+                passwordDialog.Text = "🔐 Подтверждение очистки";
+                passwordDialog.Size = new Size(380, 200);
+                passwordDialog.StartPosition = FormStartPosition.CenterParent;
+                passwordDialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                passwordDialog.MaximizeBox = false;
+                passwordDialog.MinimizeBox = false;
+                passwordDialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                Label lblWarning = new Label();
+                lblWarning.Text = "⚠️ ВНИМАНИЕ! Это действие удалит ВСЕ данные!\n" +
+                                  "Введите пароль для подтверждения:";
+                lblWarning.Font = new Font("Segoe UI", 9);
+                lblWarning.Location = new Point(20, 15);
+                lblWarning.Size = new Size(340, 40);
+                passwordDialog.Controls.Add(lblWarning);
+
+                TextBox txtPassword = new TextBox();
+                txtPassword.Location = new Point(20, 65);
+                txtPassword.Size = new Size(250, 25);
+                txtPassword.UseSystemPasswordChar = true;
+                txtPassword.KeyPress += (s, e) =>
+                {
+                    if (e.KeyChar == (char)Keys.Enter)
+                    {
+                        Button okBtn = passwordDialog.Controls["btnOk"] as Button;
+                        okBtn?.PerformClick();
+                    }
+                };
+                passwordDialog.Controls.Add(txtPassword);
+
+                Button btnOk = new Button();
+                btnOk.Name = "btnOk";
+                btnOk.Text = "✅ Подтвердить";
+                btnOk.Size = new Size(100, 30);
+                btnOk.Location = new Point(80, 110);
+                btnOk.BackColor = Color.FromArgb(200, 50, 50);
+                btnOk.ForeColor = ColorHelper.GetContrastTextColor(btnOk.BackColor);
+                btnOk.FlatStyle = FlatStyle.Flat;
+                btnOk.Cursor = Cursors.Hand;
+                btnOk.Click += (s, e) =>
+                {
+                    string enteredPassword = txtPassword.Text;
+                    var user = AccountManager.GetCurrentUser();
+
+                    if (user == null)
+                    {
+                        MessageBox.Show("Пользователь не найден!", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    string hash = AccountManager.HashPassword(enteredPassword);
+                    if (hash == user.PasswordHash || enteredPassword == user.Login)
+                    {
+                        passwordDialog.DialogResult = DialogResult.OK;
+                        passwordDialog.Close();
+                    }
+                    else
+                    {
+                        MessageBox.Show("❌ Неверный пароль!", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        txtPassword.Clear();
+                        txtPassword.Focus();
+                    }
+                };
+                passwordDialog.Controls.Add(btnOk);
+
+                Button btnCancel = new Button();
+                btnCancel.Text = "Отмена";
+                btnCancel.Size = new Size(100, 30);
+                btnCancel.Location = new Point(190, 110);
+                btnCancel.FlatStyle = FlatStyle.Flat;
+                btnCancel.Cursor = Cursors.Hand;
+                btnCancel.Click += (s, e) => passwordDialog.Close();
+                passwordDialog.Controls.Add(btnCancel);
+
+                ColorHelper.ApplyContrastToControls(passwordDialog);
+
+                if (passwordDialog.ShowDialog() == DialogResult.OK)
+                {
+                    PerformClearDevice();
+                }
+            }
+        }
+
+        private void PerformClearDevice()
+        {
+            DialogResult finalConfirm = MessageBox.Show(
+                "⚠️ ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ!\n\n" +
+                "Будут удалены ВСЕ данные:\n" +
+                "• Все аккаунты и пароли\n" +
+                "• Добавленные приложения\n" +
+                "• Закладки\n" +
+                "• Макеты рабочего стола\n" +
+                "• Настройки системы\n\n" +
+                "После очистки приложение будет перезапущено.\n\n" +
+                "Продолжить?",
+                "Полная очистка",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
-            if (result == DialogResult.Yes)
+            if (finalConfirm == DialogResult.Yes)
             {
-                mainForm.ResetAllSettings();
-                selectedWallpaperColor = Color.FromArgb(0, 128, 128);
-                selectedAppColor = Color.White;
+                try
+                {
+                    string appDataPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "Floox OC. Home Version");
 
-                if (wallpaperPreviewPanel != null)
-                    wallpaperPreviewPanel.BackColor = selectedWallpaperColor;
-                if (appPreviewPanel != null)
-                    appPreviewPanel.BackColor = selectedAppColor;
+                    if (Directory.Exists(appDataPath))
+                    {
+                        Directory.Delete(appDataPath, true);
 
-                CustomWindow.DefaultBackground = Color.White;
-                UpdateOpenWindows();
+                        MessageBox.Show(
+                            "✅ Устройство очищено!\n\n" +
+                            "Приложение будет перезапущено.",
+                            "Успех",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
 
-                labelStatus.Text = "Все настройки сброшены!";
-                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
-                ColorHelper.ApplyContrastToControls(this);
+                    Application.Restart();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        $"Ошибка очистки:\n{ex.Message}",
+                        "Ошибка",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
             }
         }
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (wallpaperPanel != null)
-            {
-                wallpaperPanel.Width = this.ClientSize.Width - 30;
-            }
         }
     }
 }

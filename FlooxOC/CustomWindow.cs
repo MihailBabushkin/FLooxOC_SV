@@ -540,13 +540,16 @@ namespace FlooxOC
             if (contentPanel != null)
             {
                 contentPanel.BackColor = DefaultBackground;
-                Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
-                SetControlForeColor(contentPanel, textColor);
+
+                // ===== ПРИМЕНЯЕМ КОНТРАСТНЫЕ ЦВЕТА КО ВСЕМ КОНТРОЛАМ =====
+                ColorHelper.ApplyContrastToControls(contentPanel);
             }
 
             // Обновляем заголовок
             Color textColorTitle = ColorHelper.GetContrastTextColor(DefaultBackground);
             titleLabel.ForeColor = textColorTitle;
+
+            this.Refresh();
         }
 
         protected override void Dispose(bool disposing)

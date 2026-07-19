@@ -30,19 +30,18 @@ namespace FlooxOC
         {
             if (parentControl == null) return;
 
-            Color backgroundColor = parentControl.BackColor;
-            Color textColor = GetContrastTextColor(backgroundColor);
-
-            ApplyColorsRecursive(parentControl, backgroundColor, textColor);
+            // Принудительно обновляем все контролы
+            ApplyColorsRecursive(parentControl);
         }
 
         /// <summary>
         /// Рекурсивно применяет цвета ко всем контролам
         /// </summary>
-        private static void ApplyColorsRecursive(Control control, Color backgroundColor, Color textColor)
+        private static void ApplyColorsRecursive(Control control)
         {
             if (control == null) return;
 
+            // Получаем цвет фона контрола
             Color currentBackgroundColor = control.BackColor;
             Color currentTextColor = GetContrastTextColor(currentBackgroundColor);
 
@@ -63,7 +62,9 @@ namespace FlooxOC
             }
             else if (control is Button button)
             {
-                button.ForeColor = GetContrastTextColor(button.BackColor);
+                // Для кнопок используем их собственный фон
+                Color buttonBg = button.BackColor;
+                button.ForeColor = GetContrastTextColor(buttonBg);
             }
             else if (control is CheckBox checkBox)
             {
@@ -92,13 +93,24 @@ namespace FlooxOC
             {
                 groupBox.ForeColor = currentTextColor;
             }
-            // Panel пропускаем, но обрабатываем дочерние
+            else if (control is Panel panel)
+            {
+                // Для панелей не меняем цвет, только обрабатываем дочерние
+            }
+            else if (control is Form form)
+            {
+                // Для формы обновляем заголовок
+                form.ForeColor = GetContrastTextColor(form.BackColor);
+            }
 
             // Рекурсивно обрабатываем все дочерние контролы
-            foreach (Control childControl in control.Controls)
+            foreach (Control child in control.Controls)
             {
-                ApplyColorsRecursive(childControl, backgroundColor, textColor);
+                ApplyColorsRecursive(child);
             }
+
+            // Принудительно перерисовываем контрол
+            control.Refresh();
         }
 
         /// <summary>
@@ -113,9 +125,8 @@ namespace FlooxOC
             }
         }
 
-        /// <summary>
-        /// Создаёт цвет из строки HTML (#RRGGBB или RRGGBB)
-        /// </summary>
+        // ===== ОСТАЛЬНЫЕ ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+
         public static Color CreateColorFromHex(string hexCode)
         {
             try
@@ -132,30 +143,21 @@ namespace FlooxOC
             }
         }
 
-        /// <summary>
-        /// Преобразует цвет в HTML строку (#RRGGBB)
-        /// </summary>
         public static string ConvertColorToHex(Color color)
         {
             return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
 
-        /// <summary>
-        /// Возвращает читаемый цвет на указанном фоне
-        /// </summary>
         public static Color GetReadableTextColor(Color backgroundColor, Color preferredColor)
         {
             double contrastRatio = CalculateContrastRatio(backgroundColor, preferredColor);
-            if (contrastRatio < 4.5) // WCAG стандарт для обычного текста
+            if (contrastRatio < 4.5)
             {
                 return GetContrastTextColor(backgroundColor);
             }
             return preferredColor;
         }
 
-        /// <summary>
-        /// Вычисляет коэффициент контрастности между двумя цветами (WCAG)
-        /// </summary>
         public static double CalculateContrastRatio(Color color1, Color color2)
         {
             double luminance1 = CalculateRelativeLuminance(color1);
@@ -163,9 +165,6 @@ namespace FlooxOC
             return (Math.Max(luminance1, luminance2) + 0.05) / (Math.Min(luminance1, luminance2) + 0.05);
         }
 
-        /// <summary>
-        /// Вычисляет относительную яркость цвета (WCAG)
-        /// </summary>
         private static double CalculateRelativeLuminance(Color color)
         {
             double red = color.R / 255.0;
@@ -179,17 +178,11 @@ namespace FlooxOC
             return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
         }
 
-        /// <summary>
-        /// Проверяет, достаточно ли контрастны два цвета (WCAG уровень AA)
-        /// </summary>
         public static bool IsContrastSufficientForAccessibility(Color foregroundColor, Color backgroundColor)
         {
             return CalculateContrastRatio(foregroundColor, backgroundColor) >= 4.5;
         }
 
-        /// <summary>
-        /// Затемняет цвет на указанный процент
-        /// </summary>
         public static Color DarkenColor(Color color, int percent)
         {
             int factor = 100 - Math.Min(100, percent);
@@ -200,9 +193,6 @@ namespace FlooxOC
             );
         }
 
-        /// <summary>
-        /// Осветляет цвет на указанный процент
-        /// </summary>
         public static Color LightenColor(Color color, int percent)
         {
             int factor = 100 + Math.Min(100, percent);
@@ -213,42 +203,27 @@ namespace FlooxOC
             );
         }
 
-        /// <summary>
-        /// Преобразует цвет в оттенки серого
-        /// </summary>
         public static Color ConvertToGrayscale(Color color)
         {
             int grayValue = (int)(0.299 * color.R + 0.587 * color.G + 0.114 * color.B);
             return Color.FromArgb(grayValue, grayValue, grayValue);
         }
 
-        /// <summary>
-        /// Получает цвет для стандартного фона приложений
-        /// </summary>
         public static Color GetDefaultAppBackgroundColor()
         {
             return Color.White;
         }
 
-        /// <summary>
-        /// Получает цвет для стандартного текста приложений
-        /// </summary>
         public static Color GetDefaultAppTextColor()
         {
             return Color.Black;
         }
 
-        /// <summary>
-        /// Проверяет, является ли цвет светлым
-        /// </summary>
         public static bool CheckIsLightColor(Color color)
         {
             return !CheckIsDarkColor(color);
         }
 
-        /// <summary>
-        /// Возвращает инвертированный цвет
-        /// </summary>
         public static Color GetInvertedColor(Color color)
         {
             return Color.FromArgb(255 - color.R, 255 - color.G, 255 - color.B);

@@ -1,17 +1,17 @@
-﻿using MySql.Data.MySqlClient;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MySql.Data.MySqlClient;
 
 namespace FlooxOC
 {
     public class MySQLManager
     {
         // ===== НАСТРОЙКИ ПОДКЛЮЧЕНИЯ =====
+        // ЗАМЕНИТЕ ЭТИ ДАННЫЕ НА ВАШИ!
         private const string SERVER = "localhost";
         private const string DATABASE = "floox_oc";
         private const string USER = "root";
@@ -34,18 +34,6 @@ namespace FlooxOC
             public string UsedBy { get; set; }
             public DateTime? UsedAt { get; set; }
             public DateTime CreatedAt { get; set; }
-        }
-
-        public class User
-        {
-            public int Id { get; set; }
-            public string Login { get; set; }
-            public string PasswordHash { get; set; }
-            public string UserName { get; set; }
-            public bool IsActivated { get; set; }
-            public string ActivationCode { get; set; }
-            public DateTime CreatedAt { get; set; }
-            public DateTime? LastLogin { get; set; }
         }
 
         public class CheckResult
@@ -137,7 +125,6 @@ namespace FlooxOC
                     return result;
                 }
 
-                // Обновляем кэш
                 if (cachedCodes == null || DateTime.Now - cacheTime > cacheLifetime)
                 {
                     cachedCodes = await GetCodes();
@@ -163,7 +150,6 @@ namespace FlooxOC
                     return result;
                 }
 
-                // ===== МАРКИРУЕМ КОД КАК ИСПОЛЬЗОВАННЫЙ =====
                 bool updateSuccess = await MarkCodeAsUsed(code, Environment.UserName);
 
                 result.UpdateSuccess = updateSuccess;
@@ -178,7 +164,6 @@ namespace FlooxOC
                     result.Message = "✅ Код активирован!";
                     result.CodeInfo = foundCode;
 
-                    // Обновляем кэш
                     cachedCodes = null;
                 }
                 else
@@ -220,7 +205,6 @@ namespace FlooxOC
 
                         if (rowsAffected > 0)
                         {
-                            // Логируем активацию
                             await LogActivation(code, userName, "activate");
                             return true;
                         }
@@ -296,7 +280,6 @@ namespace FlooxOC
                 int used = codes.FindAll(c => c.IsUsed).Count;
                 int free = codes.FindAll(c => !c.IsUsed).Count;
 
-                // Получаем последние активации
                 string lastActivations = "";
                 try
                 {
@@ -363,12 +346,6 @@ namespace FlooxOC
         {
             cachedCodes = await GetCodes();
             cacheTime = DateTime.Now;
-        }
-
-        // ====== ПОЛУЧЕНИЕ ПОСЛЕДНЕЙ ОШИБКИ ======
-        public static string GetLastError()
-        {
-            return "";
         }
 
         // ====== ПРОВЕРКА СВЯЗИ ======

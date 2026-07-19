@@ -1110,7 +1110,7 @@ namespace FlooxOC
             CustomWindow window = new CustomWindow("ℹ️ Информация о системе");
             SystemInfoApp info = new SystemInfoApp();
             window.ContentControl = info;
-            window.Size = new Size(480, 550);
+            window.Size = new Size(500, 550);
             window.MinimumSize = new Size(450, 500);
             this.Controls.Add(window);
             window.BringToFront();
@@ -1315,40 +1315,85 @@ namespace FlooxOC
                 string json = System.Text.Json.JsonSerializer.Serialize(settings);
                 File.WriteAllText(settingsPath, json);
                 savedWallpaperColor = color;
+
+                // ===== ПРИМЕНЯЕМ ЦВЕТА =====
+                this.BackColor = color;
+                ColorHelper.ApplyContrastToControls(this);
+                this.Refresh();
             }
             catch { }
         }
 
         public void ResetIconsToDefault()
         {
-            List<Control> toRemove = new List<Control>();
+            // ===== НОВАЯ ЛОГИКА: ТОЛЬКО РАССТАНОВКА, БЕЗ УДАЛЕНИЯ =====
+
+            // Получаем все иконки (и системные, и добавленные)
+            List<DesktopIcon> icons = new List<DesktopIcon>();
             foreach (Control ctrl in desktopPanel.Controls)
             {
-                if (ctrl is DesktopIcon icon && icon.Type != "system")
+                if (ctrl is DesktopIcon icon)
                 {
-                    toRemove.Add(ctrl);
+                    icons.Add(icon);
                 }
-            }
-            foreach (var ctrl in toRemove)
-            {
-                desktopPanel.Controls.Remove(ctrl);
             }
 
-            int y = 20;
-            foreach (Control ctrl in desktopPanel.Controls)
+            if (icons.Count == 0)
             {
-                if (ctrl is DesktopIcon icon && icon.Type == "system")
+                MessageBox.Show("Нет иконок для расстановки!", "Информация",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // Сортируем иконки: сначала системные, потом остальные (по алфавиту)
+            icons.Sort((a, b) =>
+            {
+                // Системные иконки всегда сверху
+                if (a.Type == "system" && b.Type != "system") return -1;
+                if (a.Type != "system" && b.Type == "system") return 1;
+
+                // Остальные по алфавиту
+                return string.Compare(a.GetText(), b.GetText(), StringComparison.OrdinalIgnoreCase);
+            });
+
+            // Расставляем иконки по сетке
+            int x = 20;
+            int y = 20;
+            int spacingX = 95;
+            int spacingY = 85;
+            int maxPerRow = 6;
+
+            foreach (var icon in icons)
+            {
+                icon.Location = new Point(x, y);
+
+                x += spacingX;
+                if (x > maxPerRow * spacingX + 20)
                 {
-                    icon.SetPosition(new Point(20, y));
-                    y += 85;
+                    x = 20;
+                    y += spacingY;
                 }
             }
+
+            // Сохраняем текущий макет
+            DesktopLayoutManager.SaveCurrentLayout(desktopPanel);
+
+            // Уведомляем пользователя
+            MessageBox.Show($"✅ Иконки расставлены!\nВсего иконок: {icons.Count}\n" +
+                $"Системных: {icons.FindAll(i => i.Type == "system").Count}\n" +
+                $"Добавленных: {icons.FindAll(i => i.Type != "system").Count}",
+                "Расстановка иконок",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         public void ResetAllSettings()
         {
             this.BackColor = Color.FromArgb(0, 128, 128);
             SaveWallpaperColor(this.BackColor);
+
+            // ===== НЕ УДАЛЯЕМ ИКОНКИ =====
+            // Просто расставляем их по сетке
             ResetIconsToDefault();
 
             var layouts = DesktopLayoutManager.GetLayoutsList();
