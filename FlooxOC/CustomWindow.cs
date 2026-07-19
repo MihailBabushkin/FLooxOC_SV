@@ -42,7 +42,7 @@ namespace FlooxOC
 
                     value.BackColor = DefaultBackground;
 
-                    Color textColor = GetContrastColor(DefaultBackground);
+                    Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
                     SetControlForeColor(value, textColor);
                 }
             }
@@ -65,16 +65,15 @@ namespace FlooxOC
             SetDefaultPosition();
             this.Resize += OnResize;
 
-            Color textColor = GetContrastColor(DefaultBackground);
+            Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
             SetControlForeColor(this, textColor);
 
-            // Подписываемся на события для поднятия окна
             this.MouseDown += OnWindowMouseDown;
             this.Click += OnWindowClick;
             titleBar.MouseDown += OnWindowMouseDown;
         }
 
-        // ====== ПОДНЯТИЕ ОКНА ======
+        // ====== СОБЫТИЯ ДЛЯ ПОДНЯТИЯ ОКНА ======
         private void OnWindowMouseDown(object sender, MouseEventArgs e)
         {
             BringToFront();
@@ -148,7 +147,6 @@ namespace FlooxOC
                     this.Cursor = Cursors.Default;
             }
 
-            // Ресайз
             if (isResizing && !isMaximized)
             {
                 int deltaX = e.X - resizeStart.X;
@@ -296,8 +294,7 @@ namespace FlooxOC
             base.WndProc(ref m);
         }
 
-        // ====== ОСТАЛЬНЫЕ МЕТОДЫ ======
-
+        // ====== ИНИЦИАЛИЗАЦИЯ ======
         private void InitializeTitleBar(string title)
         {
             titleBar = new Panel
@@ -397,7 +394,7 @@ namespace FlooxOC
                     Dock = DockStyle.Fill,
                     Font = new Font("Segoe UI", 10),
                     BackColor = DefaultBackground,
-                    ForeColor = GetContrastColor(DefaultBackground)
+                    ForeColor = ColorHelper.GetContrastTextColor(DefaultBackground)
                 };
                 contentPanel.Controls.Add(label);
             }
@@ -435,6 +432,7 @@ namespace FlooxOC
             }
         }
 
+        // ====== УПРАВЛЕНИЕ ОКНОМ ======
         private void CloseWindow()
         {
             Closed?.Invoke(this, EventArgs.Empty);
@@ -475,6 +473,7 @@ namespace FlooxOC
             Minimized?.Invoke(this, EventArgs.Empty);
         }
 
+        // ====== ПУБЛИЧНЫЙ МЕТОД ДЛЯ ВОССТАНОВЛЕНИЯ ======
         public void RestoreWindow()
         {
             this.Visible = true;
@@ -483,13 +482,7 @@ namespace FlooxOC
                 ToggleMaximize();
         }
 
-        // ====== АВТОМАТИЧЕСКИЙ ВЫБОР ЦВЕТА ТЕКСТА ======
-        private Color GetContrastColor(Color backgroundColor)
-        {
-            double brightness = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
-            return brightness < 0.5 ? Color.White : Color.Black;
-        }
-
+        // ====== РАБОТА С ЦВЕТАМИ ======
         private void SetControlForeColor(Control control, Color color)
         {
             foreach (Control child in control.Controls)
@@ -508,7 +501,7 @@ namespace FlooxOC
                 }
                 else if (child is Button button)
                 {
-                    button.ForeColor = GetContrastColor(button.BackColor);
+                    button.ForeColor = ColorHelper.GetContrastTextColor(button.BackColor);
                 }
                 else if (child is CheckBox checkBox)
                 {
@@ -526,7 +519,6 @@ namespace FlooxOC
             }
         }
 
-        // ====== ОБНОВЛЕНИЕ ЦВЕТА ВСЕХ ОКОН ======
         public static void UpdateAllWindows()
         {
             foreach (Form form in Application.OpenForms)
@@ -548,10 +540,13 @@ namespace FlooxOC
             if (contentPanel != null)
             {
                 contentPanel.BackColor = DefaultBackground;
-
-                Color textColor = GetContrastColor(DefaultBackground);
+                Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
                 SetControlForeColor(contentPanel, textColor);
             }
+
+            // Обновляем заголовок
+            Color textColorTitle = ColorHelper.GetContrastTextColor(DefaultBackground);
+            titleLabel.ForeColor = textColorTitle;
         }
 
         protected override void Dispose(bool disposing)

@@ -11,7 +11,7 @@ namespace FlooxOC
     {
         private ColorDialog colorDialog;
         private FlowLayoutPanel wallpaperPanel;
-        private Label lblStatus;
+        private Label labelStatus;
         private Form1 mainForm;
         private Color selectedWallpaperColor;
         private Color selectedAppColor;
@@ -67,7 +67,8 @@ namespace FlooxOC
 
             InitializeComponents();
 
-            ApplyContrastColors(this, this.BackColor);
+            // Применяем контрастные цвета
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         // ====== ПОЛНАЯ ОЧИСТКА КЭША ======
@@ -96,15 +97,12 @@ namespace FlooxOC
             {
                 try
                 {
-                    // Путь к папке с данными
                     string appDataPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        "MyOS95");
+                        "Floox OC. Home Version");
 
-                    // Проверяем, существует ли папка
                     if (Directory.Exists(appDataPath))
                     {
-                        // Удаляем всю папку со всем содержимым
                         Directory.Delete(appDataPath, true);
 
                         MessageBox.Show(
@@ -128,7 +126,6 @@ namespace FlooxOC
                             MessageBoxIcon.Information);
                     }
 
-                    // Перезапускаем приложение
                     Application.Restart();
                 }
                 catch (Exception ex)
@@ -136,7 +133,7 @@ namespace FlooxOC
                     MessageBox.Show(
                         $"Ошибка при очистке кэша:\n{ex.Message}\n\n" +
                         "Попробуйте удалить папку вручную:\n" +
-                        $"{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MyOS95")}",
+                        $"{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Floox OC. Home Version")}",
                         "Ошибка",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
@@ -186,7 +183,7 @@ namespace FlooxOC
                 colorBtn.FlatAppearance.BorderColor = Color.Black;
                 colorBtn.Cursor = Cursors.Hand;
                 colorBtn.Tag = wallpaperColors[i];
-                colorBtn.ForeColor = GetContrastColor(wallpaperColors[i]);
+                colorBtn.ForeColor = ColorHelper.GetContrastTextColor(wallpaperColors[i]);
 
                 ToolTip toolTip = new ToolTip();
                 toolTip.SetToolTip(colorBtn, wallpaperNames[i]);
@@ -218,7 +215,7 @@ namespace FlooxOC
             customColorBtn.Location = new Point(80, y);
             customColorBtn.FlatStyle = FlatStyle.Flat;
             customColorBtn.BackColor = Color.FromArgb(0, 120, 215);
-            customColorBtn.ForeColor = Color.White;
+            customColorBtn.ForeColor = ColorHelper.GetContrastTextColor(customColorBtn.BackColor);
             customColorBtn.Cursor = Cursors.Hand;
             customColorBtn.Click += ChooseCustomWallpaper;
             this.Controls.Add(customColorBtn);
@@ -247,7 +244,7 @@ namespace FlooxOC
             appColorBtn.Location = new Point(80, y);
             appColorBtn.FlatStyle = FlatStyle.Flat;
             appColorBtn.BackColor = Color.FromArgb(0, 150, 80);
-            appColorBtn.ForeColor = Color.White;
+            appColorBtn.ForeColor = ColorHelper.GetContrastTextColor(appColorBtn.BackColor);
             appColorBtn.Cursor = Cursors.Hand;
             appColorBtn.Click += ChooseAppBackground;
             this.Controls.Add(appColorBtn);
@@ -280,8 +277,8 @@ namespace FlooxOC
             chkRequirePassword.CheckedChanged += (s, e) =>
             {
                 AccountManager.RequirePassword = chkRequirePassword.Checked;
-                lblStatus.Text = "Настройка сохранена";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
+                labelStatus.Text = "Настройка сохранена";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             };
             this.Controls.Add(chkRequirePassword);
             y += 30;
@@ -294,8 +291,8 @@ namespace FlooxOC
             chkAutoLogin.CheckedChanged += (s, e) =>
             {
                 AccountManager.AutoLogin = chkAutoLogin.Checked;
-                lblStatus.Text = "Настройка сохранена";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
+                labelStatus.Text = "Настройка сохранена";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             };
             this.Controls.Add(chkAutoLogin);
 
@@ -324,8 +321,8 @@ namespace FlooxOC
             nudAttempts.ValueChanged += (s, e) =>
             {
                 AccountManager.MaxLoginAttempts = (int)nudAttempts.Value;
-                lblStatus.Text = "Настройка сохранена";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
+                labelStatus.Text = "Настройка сохранена";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             };
             this.Controls.Add(nudAttempts);
 
@@ -338,24 +335,26 @@ namespace FlooxOC
             this.Controls.Add(lblAttemptsHint);
             y += 40;
 
+            // КНОПКА СМЕНЫ ПАРОЛЯ
             Button btnChangePassword = new Button();
             btnChangePassword.Text = "🔑 Сменить пароль";
             btnChangePassword.Size = new Size(160, 35);
             btnChangePassword.Location = new Point(20, y);
             btnChangePassword.BackColor = Color.FromArgb(255, 180, 0);
-            btnChangePassword.ForeColor = GetContrastColor(Color.FromArgb(255, 180, 0));
+            btnChangePassword.ForeColor = ColorHelper.GetContrastTextColor(btnChangePassword.BackColor);
             btnChangePassword.FlatStyle = FlatStyle.Flat;
             btnChangePassword.Cursor = Cursors.Hand;
             btnChangePassword.Click += ChangePassword;
             this.Controls.Add(btnChangePassword);
             y += 45;
 
+            // КНОПКА ВЫХОДА
             Button btnLogout = new Button();
             btnLogout.Text = "🚪 Выйти из аккаунта";
             btnLogout.Size = new Size(160, 35);
             btnLogout.Location = new Point(20, y);
             btnLogout.BackColor = Color.FromArgb(200, 80, 80);
-            btnLogout.ForeColor = GetContrastColor(Color.FromArgb(200, 80, 80));
+            btnLogout.ForeColor = ColorHelper.GetContrastTextColor(btnLogout.BackColor);
             btnLogout.FlatStyle = FlatStyle.Flat;
             btnLogout.Cursor = Cursors.Hand;
             btnLogout.Click += (s, e) =>
@@ -378,7 +377,7 @@ namespace FlooxOC
             resetIconsBtn.Location = new Point(10, y);
             resetIconsBtn.FlatStyle = FlatStyle.Flat;
             resetIconsBtn.BackColor = Color.FromArgb(255, 180, 0);
-            resetIconsBtn.ForeColor = GetContrastColor(Color.FromArgb(255, 180, 0));
+            resetIconsBtn.ForeColor = ColorHelper.GetContrastTextColor(resetIconsBtn.BackColor);
             resetIconsBtn.Cursor = Cursors.Hand;
             resetIconsBtn.Click += ResetIcons;
             this.Controls.Add(resetIconsBtn);
@@ -390,7 +389,7 @@ namespace FlooxOC
             resetAllBtn.Location = new Point(10, y);
             resetAllBtn.FlatStyle = FlatStyle.Flat;
             resetAllBtn.BackColor = Color.FromArgb(200, 50, 50);
-            resetAllBtn.ForeColor = GetContrastColor(Color.FromArgb(200, 50, 50));
+            resetAllBtn.ForeColor = ColorHelper.GetContrastTextColor(resetAllBtn.BackColor);
             resetAllBtn.Cursor = Cursors.Hand;
             resetAllBtn.Click += ResetAll;
             this.Controls.Add(resetAllBtn);
@@ -403,107 +402,25 @@ namespace FlooxOC
             btnClearCache.Location = new Point(10, y);
             btnClearCache.FlatStyle = FlatStyle.Flat;
             btnClearCache.BackColor = Color.FromArgb(150, 50, 150);
-            btnClearCache.ForeColor = Color.White;
+            btnClearCache.ForeColor = ColorHelper.GetContrastTextColor(btnClearCache.BackColor);
             btnClearCache.Cursor = Cursors.Hand;
             btnClearCache.Click += ClearCache;
             this.Controls.Add(btnClearCache);
             y += 50;
 
             // ===== СТАТУС =====
-            lblStatus = new Label();
-            lblStatus.Text = "Готово";
-            lblStatus.Font = new Font("Segoe UI", 9);
-            lblStatus.Location = new Point(10, y);
-            lblStatus.Size = new Size(400, 25);
-            lblStatus.ForeColor = Color.DarkGreen;
-            this.Controls.Add(lblStatus);
+            labelStatus = new Label();
+            labelStatus.Text = "Готово";
+            labelStatus.Font = new Font("Segoe UI", 9);
+            labelStatus.Location = new Point(10, y);
+            labelStatus.Size = new Size(400, 25);
+            labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+            this.Controls.Add(labelStatus);
 
             colorDialog = new ColorDialog();
 
-            ApplyContrastColors(this, this.BackColor);
-        }
-
-        // ====== АВТОМАТИЧЕСКИЙ ВЫБОР ЦВЕТА ======
-        private Color GetContrastColor(Color backgroundColor)
-        {
-            double brightness = (0.299 * backgroundColor.R + 0.587 * backgroundColor.G + 0.114 * backgroundColor.B) / 255;
-            return brightness < 0.5 ? Color.White : Color.Black;
-        }
-
-        private void ApplyContrastColors(Control parentCtrl, Color bgColor)
-        {
-            Color contrastColor = GetContrastColor(bgColor);
-
-            foreach (Control child in parentCtrl.Controls)
-            {
-                if (child is Label label)
-                {
-                    label.ForeColor = contrastColor;
-                }
-                else if (child is Button button)
-                {
-                    button.ForeColor = GetContrastColor(button.BackColor);
-                }
-                else if (child is CheckBox checkBox)
-                {
-                    checkBox.ForeColor = contrastColor;
-                }
-                else if (child is NumericUpDown numericUpDown)
-                {
-                    numericUpDown.ForeColor = contrastColor;
-
-                    if (contrastColor == Color.White)
-                    {
-                        numericUpDown.BackColor = Color.FromArgb(64, 64, 64);
-                        numericUpDown.ForeColor = Color.White;
-                    }
-                    else
-                    {
-                        numericUpDown.BackColor = Color.White;
-                        numericUpDown.ForeColor = Color.Black;
-                    }
-
-                    foreach (Control subChild in numericUpDown.Controls)
-                    {
-                        if (subChild is TextBox textBox)
-                        {
-                            textBox.BackColor = numericUpDown.BackColor;
-                            textBox.ForeColor = numericUpDown.ForeColor;
-                            textBox.TextAlign = HorizontalAlignment.Center;
-                        }
-                        else if (subChild is Button upDownButton)
-                        {
-                            upDownButton.BackColor = bgColor == Color.FromArgb(192, 192, 192) ?
-                                Color.FromArgb(220, 220, 220) : bgColor;
-                            upDownButton.ForeColor = contrastColor;
-                        }
-                    }
-                }
-                else if (child is Panel panel)
-                {
-                    ApplyContrastColors(panel, bgColor);
-                }
-                else if (child is TextBox textBox)
-                {
-                    textBox.BackColor = contrastColor == Color.White ? Color.FromArgb(64, 64, 64) : Color.White;
-                    textBox.ForeColor = GetContrastColor(textBox.BackColor);
-                }
-                else if (child is RichTextBox richTextBox)
-                {
-                    richTextBox.BackColor = contrastColor == Color.White ? Color.FromArgb(64, 64, 64) : Color.White;
-                    richTextBox.ForeColor = GetContrastColor(richTextBox.BackColor);
-                }
-                else if (child is ListBox listBox)
-                {
-                    listBox.BackColor = contrastColor == Color.White ? Color.FromArgb(64, 64, 64) : Color.White;
-                    listBox.ForeColor = GetContrastColor(listBox.BackColor);
-                }
-                else if (child is ComboBox comboBox)
-                {
-                    comboBox.BackColor = contrastColor == Color.White ? Color.FromArgb(64, 64, 64) : Color.White;
-                    comboBox.ForeColor = GetContrastColor(comboBox.BackColor);
-                }
-            }
+            // Применяем контрастные цвета ко всем контролам
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         // ====== МЕТОДЫ ======
@@ -525,7 +442,7 @@ namespace FlooxOC
                 {
                     if (btn is Button b)
                     {
-                        b.ForeColor = GetContrastColor(b.BackColor);
+                        b.ForeColor = ColorHelper.GetContrastTextColor(b.BackColor);
                         if (b.BackColor.ToArgb() == color.ToArgb())
                         {
                             b.FlatAppearance.BorderSize = 3;
@@ -539,9 +456,9 @@ namespace FlooxOC
                     }
                 }
 
-                lblStatus.Text = $"Фон изменён на {GetColorName(color)}";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
-                ApplyContrastColors(this, this.BackColor);
+                labelStatus.Text = $"Фон изменён на {GetColorName(color)}";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+                ColorHelper.ApplyContrastToControls(this);
             }
         }
 
@@ -579,9 +496,9 @@ namespace FlooxOC
                 CustomWindow.DefaultBackground = selectedAppColor;
                 CustomWindow.UpdateAllWindows();
 
-                lblStatus.Text = "Цвет фона приложений изменён";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
-                ApplyContrastColors(this, this.BackColor);
+                labelStatus.Text = "Цвет фона приложений изменён";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+                ColorHelper.ApplyContrastToControls(this);
             }
         }
 
@@ -598,7 +515,7 @@ namespace FlooxOC
                     if (window.ContentControl != null)
                     {
                         window.ContentControl.BackColor = CustomWindow.DefaultBackground;
-                        Color textColor = GetContrastColor(CustomWindow.DefaultBackground);
+                        Color textColor = ColorHelper.GetContrastTextColor(CustomWindow.DefaultBackground);
                         SetControlForeColor(window.ContentControl, textColor);
                     }
                 }
@@ -623,7 +540,7 @@ namespace FlooxOC
                 }
                 else if (child is Button button)
                 {
-                    button.ForeColor = GetContrastColor(button.BackColor);
+                    button.ForeColor = ColorHelper.GetContrastTextColor(button.BackColor);
                 }
                 else if (child is CheckBox checkBox)
                 {
@@ -657,53 +574,53 @@ namespace FlooxOC
                 dialog.MinimizeBox = false;
                 dialog.BackColor = Color.FromArgb(192, 192, 192);
 
-                int y = 20;
+                int dlgY = 20;
 
                 Label lblOld = new Label();
                 lblOld.Text = "Старый пароль:";
-                lblOld.Location = new Point(20, y);
+                lblOld.Location = new Point(20, dlgY);
                 lblOld.Size = new Size(100, 25);
                 dialog.Controls.Add(lblOld);
 
                 TextBox txtOld = new TextBox();
-                txtOld.Location = new Point(130, y);
+                txtOld.Location = new Point(130, dlgY);
                 txtOld.Size = new Size(230, 25);
                 txtOld.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtOld);
-                y += 40;
+                dlgY += 40;
 
                 Label lblNew = new Label();
                 lblNew.Text = "Новый пароль:";
-                lblNew.Location = new Point(20, y);
+                lblNew.Location = new Point(20, dlgY);
                 lblNew.Size = new Size(100, 25);
                 dialog.Controls.Add(lblNew);
 
                 TextBox txtNew = new TextBox();
-                txtNew.Location = new Point(130, y);
+                txtNew.Location = new Point(130, dlgY);
                 txtNew.Size = new Size(230, 25);
                 txtNew.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtNew);
-                y += 40;
+                dlgY += 40;
 
                 Label lblConfirm = new Label();
                 lblConfirm.Text = "Подтвердите:";
-                lblConfirm.Location = new Point(20, y);
+                lblConfirm.Location = new Point(20, dlgY);
                 lblConfirm.Size = new Size(100, 25);
                 dialog.Controls.Add(lblConfirm);
 
                 TextBox txtConfirm = new TextBox();
-                txtConfirm.Location = new Point(130, y);
+                txtConfirm.Location = new Point(130, dlgY);
                 txtConfirm.Size = new Size(230, 25);
                 txtConfirm.UseSystemPasswordChar = true;
                 dialog.Controls.Add(txtConfirm);
-                y += 40;
+                dlgY += 40;
 
                 Button btnOk = new Button();
                 btnOk.Text = "Изменить";
-                btnOk.Location = new Point(150, y);
+                btnOk.Location = new Point(150, dlgY);
                 btnOk.Size = new Size(100, 30);
                 btnOk.BackColor = Color.FromArgb(0, 120, 215);
-                btnOk.ForeColor = Color.White;
+                btnOk.ForeColor = ColorHelper.GetContrastTextColor(btnOk.BackColor);
                 btnOk.FlatStyle = FlatStyle.Flat;
                 btnOk.Click += (s, ev) =>
                 {
@@ -755,13 +672,14 @@ namespace FlooxOC
                     if (userToUpdate != null)
                     {
                         userToUpdate.PasswordHash = AccountManager.HashPassword(newPass);
-                        System.IO.File.WriteAllText(
-                            System.IO.Path.Combine(
-                                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                                "MyOS95", "Accounts", "accounts.json"),
-                            System.Text.Json.JsonSerializer.Serialize(accounts,
-                                new System.Text.Json.JsonSerializerOptions { WriteIndented = true })
-                        );
+                        string accountsPath = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            "Floox OC. Home Version", "Accounts", "accounts.json");
+
+                        string json = System.Text.Json.JsonSerializer.Serialize(accounts,
+                            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(accountsPath, json);
+
                         MessageBox.Show("Пароль успешно изменён!", "Успех",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         dialog.Close();
@@ -771,13 +689,13 @@ namespace FlooxOC
 
                 Button btnCancel = new Button();
                 btnCancel.Text = "Отмена";
-                btnCancel.Location = new Point(260, y);
+                btnCancel.Location = new Point(260, dlgY);
                 btnCancel.Size = new Size(100, 30);
                 btnCancel.FlatStyle = FlatStyle.Flat;
                 btnCancel.Click += (s, ev) => dialog.Close();
                 dialog.Controls.Add(btnCancel);
 
-                ApplyContrastColors(dialog, dialog.BackColor);
+                ColorHelper.ApplyContrastToControls(dialog);
 
                 dialog.ShowDialog();
             }
@@ -794,8 +712,8 @@ namespace FlooxOC
             if (result == DialogResult.Yes)
             {
                 mainForm.ResetIconsToDefault();
-                lblStatus.Text = "Иконки восстановлены!";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
+                labelStatus.Text = "Иконки восстановлены!";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             }
         }
 
@@ -821,9 +739,9 @@ namespace FlooxOC
                 CustomWindow.DefaultBackground = Color.White;
                 UpdateOpenWindows();
 
-                lblStatus.Text = "Все настройки сброшены!";
-                lblStatus.ForeColor = GetContrastColor(this.BackColor);
-                ApplyContrastColors(this, this.BackColor);
+                labelStatus.Text = "Все настройки сброшены!";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+                ColorHelper.ApplyContrastToControls(this);
             }
         }
 

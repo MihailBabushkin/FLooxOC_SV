@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
 
@@ -16,10 +17,11 @@ namespace FlooxOC
         private Color savedWallpaperColor;
         private Timer demoStatusTimer;
         private Label demoStatusLabel;
+        private Label languageLabel;
 
         public Form1()
         {
-            this.Text = "MyOS 95";
+            this.Text = "Floox OC. Home Version";
             this.BackColor = Color.FromArgb(0, 128, 128);
             this.WindowState = FormWindowState.Maximized;
             this.FormBorderStyle = FormBorderStyle.None;
@@ -31,21 +33,78 @@ namespace FlooxOC
             InitializeDesktopContextMenu();
             LoadSavedItems();
 
-            // Проверяем демо-режим после загрузки формы
             this.Load += (s, e) => CheckDemoStatus();
+
+            // ===== ТАЙМЕР ДЛЯ ОБНОВЛЕНИЯ РАСКЛАДКИ КЛАВИАТУРЫ =====
+            Timer layoutTimer = new Timer();
+            layoutTimer.Interval = 500;
+            layoutTimer.Tick += (s, e) => UpdateLanguageIndicator();
+            layoutTimer.Start();
+        }
+
+        // ===== ОБНОВЛЕНИЕ ИНДИКАТОРА РАСКЛАДКИ КЛАВИАТУРЫ =====
+        private void UpdateLanguageIndicator()
+        {
+            if (languageLabel == null) return;
+
+            try
+            {
+                // Получаем текущую раскладку клавиатуры
+                InputLanguage currentLayout = InputLanguage.CurrentInputLanguage;
+                string layoutName = currentLayout.Culture.Name;
+                string language = layoutName.Split('-')[0];
+                string code = GetLanguageCode(language);
+
+                if (languageLabel.Text != code)
+                {
+                    languageLabel.Text = code;
+                }
+            }
+            catch
+            {
+                try
+                {
+                    string cultureName = CultureInfo.CurrentCulture.Name;
+                    string language = cultureName.Split('-')[0];
+                    languageLabel.Text = GetLanguageCode(language);
+                }
+                catch
+                {
+                    languageLabel.Text = "EN";
+                }
+            }
+        }
+
+        private string GetLanguageCode(string language)
+        {
+            switch (language.ToLower())
+            {
+                case "ru": return "RU";
+                case "en": return "EN";
+                case "de": return "DE";
+                case "fr": return "FR";
+                case "es": return "ES";
+                case "it": return "IT";
+                case "zh": return "ZH";
+                case "ja": return "JA";
+                case "ko": return "KO";
+                case "ar": return "AR";
+                case "pt": return "PT";
+                default: return language.ToUpper().Substring(0, Math.Min(2, language.Length));
+            }
         }
 
         private void InitializeTaskbar()
         {
             taskbar = new Panel();
-            taskbar.Height = 55;  // ← Немного выше для информации
+            taskbar.Height = 55;
             taskbar.Dock = DockStyle.Bottom;
-            taskbar.BackColor = Color.FromArgb(192, 192, 192);  // ← Классический серый Win95
-            taskbar.BorderStyle = BorderStyle.Fixed3D;  // ← 3D рамка как в Win95
+            taskbar.BackColor = Color.FromArgb(192, 192, 192);
+            taskbar.BorderStyle = BorderStyle.Fixed3D;
             taskbar.Name = "taskbar";
             taskbar.Padding = new Padding(3, 0, 3, 0);
 
-            // ===== КНОПКА ПУСК (Win95 стиль) =====
+            // ===== КНОПКА ПУСК =====
             Button startBtn = new Button();
             startBtn.Text = " Пуск ";
             startBtn.Location = new Point(4, 8);
@@ -75,60 +134,82 @@ namespace FlooxOC
             // ===== ПАНЕЛЬ ЗАДАЧ =====
             Panel taskButtonsPanel = new Panel();
             taskButtonsPanel.Location = new Point(84, 6);
-            taskButtonsPanel.Size = new Size(taskbar.Width - 260, 42);
+            taskButtonsPanel.Size = new Size(taskbar.Width - 270, 42);
             taskButtonsPanel.BackColor = Color.Transparent;
             taskButtonsPanel.Name = "taskButtonsPanel";
             taskbar.Controls.Add(taskButtonsPanel);
 
-            // ===== ПАНЕЛЬ ИНФОРМАЦИИ + ЧАСЫ (Win95 стиль) =====
+            // ===== ПАНЕЛЬ ИНФОРМАЦИИ =====
             Panel infoPanel = new Panel();
-            infoPanel.Size = new Size(150, 44);
-            infoPanel.Location = new Point(taskbar.Width - 155, 4);
+            infoPanel.Size = new Size(175, 44);
+            infoPanel.Location = new Point(taskbar.Width - 180, 4);
             infoPanel.BackColor = Color.FromArgb(192, 192, 192);
             infoPanel.BorderStyle = BorderStyle.Fixed3D;
             infoPanel.Cursor = Cursors.Hand;
 
-            // Дата (маленькая, над временем)
+            // ===== ИНДИКАТОР РАСКЛАДКИ КЛАВИАТУРЫ =====
+            string initialLanguage = "EN";
+            try
+            {
+                string layoutName = InputLanguage.CurrentInputLanguage.Culture.Name;
+                string lang = layoutName.Split('-')[0];
+                initialLanguage = GetLanguageCode(lang);
+            }
+            catch { }
+
+            languageLabel = new Label();
+            languageLabel.Text = initialLanguage;
+            languageLabel.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            languageLabel.ForeColor = Color.Black;
+            languageLabel.Location = new Point(4, 0);
+            languageLabel.Size = new Size(32, 14);
+            languageLabel.TextAlign = ContentAlignment.MiddleCenter;
+            languageLabel.BackColor = Color.FromArgb(210, 210, 210);
+            languageLabel.BorderStyle = BorderStyle.FixedSingle;
+            infoPanel.Controls.Add(languageLabel);
+
+            // Дата
             Label dateLabel = new Label();
             dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
             dateLabel.Font = new Font("Segoe UI", 7);
             dateLabel.ForeColor = Color.Black;
-            dateLabel.Location = new Point(2, 0);
-            dateLabel.Size = new Size(144, 14);
+            dateLabel.Location = new Point(40, 0);
+            dateLabel.Size = new Size(130, 14);
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
             infoPanel.Controls.Add(dateLabel);
 
-            // ВРЕМЯ (крупно)
+            // Время
             clockLabel = new Label();
             clockLabel.Text = DateTime.Now.ToString("HH:mm");
             clockLabel.Font = new Font("Segoe UI", 14, FontStyle.Bold);
             clockLabel.ForeColor = Color.Black;
-            clockLabel.Location = new Point(2, 14);
-            clockLabel.Size = new Size(144, 22);
+            clockLabel.Location = new Point(4, 14);
+            clockLabel.Size = new Size(166, 22);
             clockLabel.TextAlign = ContentAlignment.MiddleCenter;
             clockLabel.Name = "clockLabel";
             infoPanel.Controls.Add(clockLabel);
 
-            // Статус демо-режима (под временем)
+            // Демо-статус
             demoStatusLabel = new Label();
             demoStatusLabel.Text = "";
             demoStatusLabel.Font = new Font("Segoe UI", 7);
             demoStatusLabel.ForeColor = Color.FromArgb(200, 50, 50);
-            demoStatusLabel.Location = new Point(2, 34);
-            demoStatusLabel.Size = new Size(144, 12);
+            demoStatusLabel.Location = new Point(4, 34);
+            demoStatusLabel.Size = new Size(166, 12);
             demoStatusLabel.TextAlign = ContentAlignment.MiddleCenter;
             demoStatusLabel.Visible = false;
             infoPanel.Controls.Add(demoStatusLabel);
 
-            // Клик по панели информации
+            // Клик по панели
             infoPanel.Click += (s, e) => ShowDateTimeInfo();
             dateLabel.Click += (s, e) => ShowDateTimeInfo();
             clockLabel.Click += (s, e) => ShowDateTimeInfo();
             demoStatusLabel.Click += (s, e) => ShowDateTimeInfo();
+            languageLabel.Click += (s, e) => ShowDateTimeInfo();
 
             taskbar.Controls.Add(infoPanel);
 
-            // ===== ТАЙМЕР =====
+            // ===== ТАЙМЕР ДЛЯ ЧАСОВ =====
             clockTimer = new Timer();
             clockTimer.Interval = 1000;
             clockTimer.Tick += (s, e) =>
@@ -148,12 +229,11 @@ namespace FlooxOC
             {
                 if (taskbar != null)
                 {
-                    infoPanel.Location = new Point(taskbar.Width - 155, 4);
-                    taskButtonsPanel.Width = taskbar.Width - 260;
+                    infoPanel.Location = new Point(taskbar.Width - 180, 4);
+                    taskButtonsPanel.Width = taskbar.Width - 270;
                 }
             };
         }
-
 
         private void InitializeDesktop()
         {
@@ -410,7 +490,7 @@ namespace FlooxOC
                 {
                     try
                     {
-                        string name = System.IO.Path.GetFileNameWithoutExtension(ofd.FileName);
+                        string name = Path.GetFileNameWithoutExtension(ofd.FileName);
                         AppInfo app = new AppInfo
                         {
                             Name = name,
@@ -888,14 +968,13 @@ namespace FlooxOC
 
             foreach (Control ctrl in taskbar.Controls)
             {
-                if (ctrl is Panel infoPanel && infoPanel.Size.Width == 150)
+                if (ctrl is Panel infoPanel && infoPanel.Size.Width == 175)
                 {
                     infoPanel.BringToFront();
                     break;
                 }
             }
         }
-
 
         private void UpdateTaskButtonsPosition()
         {
@@ -972,7 +1051,7 @@ namespace FlooxOC
 
         private void OpenNotepad()
         {
-            CustomWindow window = new CustomWindow("Блокнот - MyOS 95");
+            CustomWindow window = new CustomWindow("Блокнот - Floox OC");
             NotepadApp notepad = new NotepadApp();
             window.ContentControl = notepad;
             window.Size = new Size(700, 500);
@@ -986,7 +1065,7 @@ namespace FlooxOC
 
         private void OpenBrowser()
         {
-            CustomWindow window = new CustomWindow("Браузер - MyOS 95");
+            CustomWindow window = new CustomWindow("Браузер - Floox OC");
             ModernBrowserApp browser = new ModernBrowserApp();
             window.ContentControl = browser;
             window.Size = new Size(1000, 700);
@@ -1048,16 +1127,13 @@ namespace FlooxOC
             {
                 if (AccountManager.IsDemoExpired)
                 {
-                    // Демо истекло - блокируем
                     this.Enabled = false;
                     ShowActivationDialog();
                 }
                 else
                 {
-                    // Показываем статус демо-режима
                     UpdateDemoStatus();
 
-                    // Запускаем таймер обновления статуса
                     if (demoStatusTimer == null)
                     {
                         demoStatusTimer = new Timer();
@@ -1066,7 +1142,6 @@ namespace FlooxOC
                         demoStatusTimer.Start();
                     }
 
-                    // Показываем статус в панели задач
                     if (demoStatusLabel != null)
                     {
                         demoStatusLabel.Visible = true;
@@ -1081,13 +1156,13 @@ namespace FlooxOC
             if (AccountManager.IsDemoMode && !AccountManager.IsDemoExpired)
             {
                 string remaining = AccountManager.GetDemoTimeRemaining();
-                this.Text = $"Floox'OC (ДЕМО - {remaining})";
+                this.Text = $"Floox OC. Home Version (ДЕМО - {remaining})";
 
                 if (demoStatusLabel != null)
                 {
                     demoStatusLabel.Visible = true;
                     demoStatusLabel.Text = $"🆓 ДЕМО: {remaining}";
-                    demoStatusLabel.ForeColor = Color.FromArgb(200, 50, 50); // Красный для заметности
+                    demoStatusLabel.ForeColor = Color.FromArgb(200, 50, 50);
                 }
             }
             else if (AccountManager.IsDemoExpired)
@@ -1115,14 +1190,12 @@ namespace FlooxOC
                 activationDialog.ShowDialog();
                 if (activationDialog.IsActivated)
                 {
-                    // Активация успешна
                     AccountManager.StopDemoTimers();
                     AccountManager.IsDemoMode = false;
                     AccountManager.IsDemoExpired = false;
 
-                    // Восстанавливаем работоспособность
                     this.Enabled = true;
-                    this.Text = "MyOS 95";
+                    this.Text = "Floox OC. Home Version";
 
                     if (demoStatusLabel != null)
                     {
@@ -1141,7 +1214,6 @@ namespace FlooxOC
                 }
                 else
                 {
-                    // Если активация не пройдена и демо истекло
                     if (AccountManager.IsDemoExpired)
                     {
                         MessageBox.Show("❌ Активация не выполнена. Приложение будет закрыто.",
@@ -1214,7 +1286,7 @@ namespace FlooxOC
             {
                 string settingsPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MyOS95", "settings.json");
+                    "Floox OC. Home Version", "settings.json");
 
                 if (File.Exists(settingsPath))
                 {
@@ -1236,7 +1308,7 @@ namespace FlooxOC
             {
                 string settingsPath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MyOS95", "settings.json");
+                    "Floox OC. Home Version", "settings.json");
 
                 Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
                 var settings = new WallpaperSettings { Wallpaper = color.ToArgb() };
@@ -1298,9 +1370,9 @@ namespace FlooxOC
             {
                 foreach (Control ctrl in taskbar.Controls)
                 {
-                    if (ctrl is Panel infoPanel && infoPanel.Size.Width == 190)
+                    if (ctrl is Panel infoPanel && infoPanel.Size.Width == 175)
                     {
-                        infoPanel.Location = new Point(taskbar.Width - 195, 2);
+                        infoPanel.Location = new Point(taskbar.Width - 180, 2);
                         break;
                     }
                 }

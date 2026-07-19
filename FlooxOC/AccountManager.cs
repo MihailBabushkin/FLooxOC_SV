@@ -152,6 +152,14 @@ namespace FlooxOC
             }
         }
 
+        public static void SaveActivationCode(string code)
+        {
+            settings.ActivationCode = code;
+            settings.IsDemoMode = false;
+            settings.IsDemoExpired = false;
+            SaveSettings();
+        }
+
         public static async Task<bool> ActivateCode(string code)
         {
             try

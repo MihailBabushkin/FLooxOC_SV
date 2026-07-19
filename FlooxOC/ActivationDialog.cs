@@ -18,8 +18,8 @@ namespace FlooxOC
 
         public ActivationDialog()
         {
-            this.Text = "Активация MyOS 95";
-            this.Size = new Size(450, 280);
+            this.Text = "Активация Floox OC. Home Version";
+            this.Size = new Size(450, 320);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -27,6 +27,7 @@ namespace FlooxOC
             this.BackColor = Color.FromArgb(192, 192, 192);
 
             InitializeComponents();
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         private void InitializeComponents()
@@ -42,7 +43,7 @@ namespace FlooxOC
             y += 45;
 
             lblInfo = new Label();
-            lblInfo.Text = "Введите код активации из Google Sheets.\n" +
+            lblInfo.Text = "Введите код активации из базы данных.\n" +
                           "Код будет проверен и помечен как использованный.\n" +
                           "Для теста: DEMO-2024, TEST-1234, FREE-2024";
             lblInfo.Font = new Font("Segoe UI", 9);
@@ -74,17 +75,17 @@ namespace FlooxOC
             lblStatus.Text = "";
             lblStatus.Font = new Font("Segoe UI", 9);
             lblStatus.Location = new Point(20, y);
-            lblStatus.Size = new Size(400, 25);
+            lblStatus.Size = new Size(400, 50);
             lblStatus.ForeColor = Color.DarkRed;
             this.Controls.Add(lblStatus);
-            y += 35;
+            y += 60;
 
             btnActivate = new Button();
             btnActivate.Text = "✅ Активировать";
             btnActivate.Size = new Size(130, 35);
             btnActivate.Location = new Point(20, y);
             btnActivate.BackColor = Color.FromArgb(0, 120, 215);
-            btnActivate.ForeColor = Color.White;
+            btnActivate.ForeColor = ColorHelper.GetContrastTextColor(btnActivate.BackColor);
             btnActivate.FlatStyle = FlatStyle.Flat;
             btnActivate.Cursor = Cursors.Hand;
             btnActivate.Click += async (s, e) => await ActivateAsync();
@@ -95,6 +96,7 @@ namespace FlooxOC
             btnSkip.Size = new Size(130, 35);
             btnSkip.Location = new Point(160, y);
             btnSkip.FlatStyle = FlatStyle.Flat;
+            btnSkip.ForeColor = ColorHelper.GetContrastTextColor(btnSkip.BackColor);
             btnSkip.Cursor = Cursors.Hand;
             btnSkip.Click += (s, e) =>
             {
@@ -102,6 +104,19 @@ namespace FlooxOC
                 this.Close();
             };
             this.Controls.Add(btnSkip);
+
+            Button btnCheckConnection = new Button();
+            btnCheckConnection.Text = "🔍 Проверить связь";
+            btnCheckConnection.Size = new Size(130, 35);
+            btnCheckConnection.Location = new Point(300, y);
+            btnCheckConnection.FlatStyle = FlatStyle.Flat;
+            btnCheckConnection.BackColor = Color.FromArgb(200, 180, 0);
+            btnCheckConnection.ForeColor = ColorHelper.GetContrastTextColor(btnCheckConnection.BackColor);
+            btnCheckConnection.Cursor = Cursors.Hand;
+            btnCheckConnection.Click += async (s, e) => await CheckConnection();
+            this.Controls.Add(btnCheckConnection);
+
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         private async Task ActivateAsync()
@@ -109,32 +124,40 @@ namespace FlooxOC
             string code = txtCode.Text.Trim();
             if (string.IsNullOrEmpty(code))
             {
-                lblStatus.Text = "Введите код активации!";
+                lblStatus.Text = "⚠️ Введите код активации!";
                 lblStatus.ForeColor = Color.DarkRed;
                 return;
             }
 
             btnActivate.Enabled = false;
             btnActivate.Text = "⏳ Проверка...";
-            lblStatus.Text = "⏳ Проверка кода в Google Sheets...";
+            lblStatus.Text = "⏳ Проверка кода в базе данных...";
             lblStatus.ForeColor = Color.DarkBlue;
 
             try
             {
-                bool isValid = await GoogleSheetsManager.ValidateCode(code);
+                var result = await MySQLManager.ValidateCode(code);
 
-                if (isValid)
+                if (result.Success)
                 {
                     isActivated = true;
                     lblStatus.Text = "✅ Активация успешна!";
                     lblStatus.ForeColor = Color.DarkGreen;
+
+                    AccountManager.SaveActivationCode(code);
+
                     await Task.Delay(500);
                     this.Close();
                 }
                 else
                 {
-                    lblStatus.Text = "❌ Неверный или уже использованный код!";
+                    lblStatus.Text = result.Message;
                     lblStatus.ForeColor = Color.DarkRed;
+
+                    if (result.CodeInfo != null && result.CodeInfo.IsUsed)
+                    {
+                        lblStatus.Text += $"\n👤 Использован: {result.CodeInfo.UsedBy}";
+                    }
                 }
             }
             catch (Exception ex)
@@ -147,6 +170,52 @@ namespace FlooxOC
                 btnActivate.Enabled = true;
                 btnActivate.Text = "✅ Активировать";
             }
+        }
+
+        private async Task CheckConnection()
+        {
+            btnActivate.Enabled = false;
+            lblStatus.Text = "⏳ Проверка связи с MySQL...";
+            lblStatus.ForeColor = Color.DarkBlue;
+
+            try
+            {
+                var result = await MySQLManager.CheckConnection();
+
+                if (result.Success)
+                {
+                    lblStatus.Text = $"✅ {result.Message}\n" +
+                                     $"📊 Всего: {result.TotalCodes}, Свободно: {result.FreeCodes}, Использовано: {result.UsedCodes}";
+                    lblStatus.ForeColor = Color.DarkGreen;
+                }
+                else
+                {
+                    lblStatus.Text = $"❌ {result.Message}";
+                    lblStatus.ForeColor = Color.DarkRed;
+                }
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = $"❌ Ошибка: {ex.Message}";
+                lblStatus.ForeColor = Color.DarkRed;
+            }
+            finally
+            {
+                btnActivate.Enabled = true;
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                txtCode?.Dispose();
+                btnActivate?.Dispose();
+                btnSkip?.Dispose();
+                lblStatus?.Dispose();
+                lblInfo?.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 }

@@ -17,7 +17,7 @@ namespace FlooxOC
         public RegisterDialog()
         {
             this.Text = "📝 Регистрация";
-            this.Size = new Size(560, 460);  // ← Увеличено
+            this.Size = new Size(560, 460);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -25,6 +25,9 @@ namespace FlooxOC
             this.BackColor = Color.FromArgb(192, 192, 192);
 
             InitializeComponents();
+
+            // Применяем контрастные цвета
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         private void InitializeComponents()
@@ -118,7 +121,7 @@ namespace FlooxOC
             btnRegister.Size = new Size(160, 45);
             btnRegister.Location = new Point(30, y);
             btnRegister.BackColor = Color.FromArgb(0, 150, 80);
-            btnRegister.ForeColor = Color.White;
+            btnRegister.ForeColor = ColorHelper.GetContrastTextColor(btnRegister.BackColor);
             btnRegister.FlatStyle = FlatStyle.Flat;
             btnRegister.Font = new Font("Segoe UI", 11);
             btnRegister.Cursor = Cursors.Hand;
@@ -179,6 +182,9 @@ namespace FlooxOC
             btnCancel.Cursor = Cursors.Hand;
             btnCancel.Click += (s, e) => this.Close();
             this.Controls.Add(btnCancel);
+
+            // Применяем контрастные цвета ко всем контролам
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         protected override void Dispose(bool disposing)

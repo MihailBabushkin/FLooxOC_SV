@@ -22,7 +22,7 @@ namespace FlooxOC
         public LoginDialog()
         {
             this.Text = "Вход в Floox OC. Home Version";
-            this.Size = new Size(440, 440);  // ← Увеличено
+            this.Size = new Size(440, 440);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -30,6 +30,9 @@ namespace FlooxOC
             this.BackColor = Color.FromArgb(192, 192, 192);
 
             InitializeComponents();
+
+            // Применяем контрастные цвета
+            ColorHelper.ApplyContrastToControls(this);
 
             this.Shown += LoginDialog_Shown;
         }
@@ -128,7 +131,7 @@ namespace FlooxOC
             btnLogin.Size = new Size(130, 55);
             btnLogin.Location = new Point(140, y);
             btnLogin.BackColor = Color.FromArgb(0, 120, 215);
-            btnLogin.ForeColor = Color.White;
+            btnLogin.ForeColor = ColorHelper.GetContrastTextColor(btnLogin.BackColor);
             btnLogin.FlatStyle = FlatStyle.Flat;
             btnLogin.Font = new Font("Segoe UI", 11);
             btnLogin.Cursor = Cursors.Hand;
@@ -140,7 +143,7 @@ namespace FlooxOC
             btnRegister.Size = new Size(130, 55);
             btnRegister.Location = new Point(280, y);
             btnRegister.BackColor = Color.FromArgb(0, 150, 80);
-            btnRegister.ForeColor = Color.White;
+            btnRegister.ForeColor = ColorHelper.GetContrastTextColor(btnRegister.BackColor);
             btnRegister.FlatStyle = FlatStyle.Flat;
             btnRegister.Font = new Font("Segoe UI", 11);
             btnRegister.Cursor = Cursors.Hand;
@@ -157,6 +160,9 @@ namespace FlooxOC
                 }
             };
             this.Controls.Add(btnRegister);
+
+            // Применяем контрастные цвета ко всем контролам
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         private void PerformLogin()
