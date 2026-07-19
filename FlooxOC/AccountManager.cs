@@ -14,9 +14,9 @@ namespace FlooxOC
     public class AccountManager
     {
         private static string DataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyOS95", "Accounts"
-        );
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    "Floox OC. Home Version", "Accounts"
+);
         private static string AccountsFile = Path.Combine(DataPath, "accounts.json");
         private static string SettingsFile = Path.Combine(DataPath, "settings.json");
 

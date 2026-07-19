@@ -12,7 +12,7 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MyOS95", "Bookmarks"
+            "Floox OC. Home Version", "Bookmarks"
         );
         private static string BookmarksFile = Path.Combine(DataPath, "bookmarks.json");
         private static string IconsFolder = Path.Combine(DataPath, "Icons");

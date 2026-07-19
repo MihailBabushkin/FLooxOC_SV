@@ -53,6 +53,8 @@
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <PreferNativeArm64>false</PreferNativeArm64>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup>
     <ManifestCertificateThumbprint>0769B01E05925020AF2F5962C91E748D23C3B8A7</ManifestCertificateThumbprint>
@@ -250,11 +252,32 @@
     <EmbeddedResource Include="ActivationDialog.resx">
       <DependentUpon>ActivationDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="AddAppDialog.resx">
+      <DependentUpon>AddAppDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="AddBookmarkDialog.resx">
+      <DependentUpon>AddBookmarkDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="CalculatorApp.resx">
+      <DependentUpon>CalculatorApp.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="CustomWindow.resx">
+      <DependentUpon>CustomWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="DesktopIcon.resx">
+      <DependentUpon>DesktopIcon.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="InstallerApp.resx">
       <DependentUpon>InstallerApp.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="LoginDialog.resx">
+      <DependentUpon>LoginDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ModernBrowserApp.resx">
+      <DependentUpon>ModernBrowserApp.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -265,11 +288,20 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="RegisterDialog.resx">
+      <DependentUpon>RegisterDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SettingsApp.resx">
+      <DependentUpon>SettingsApp.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="StartMenu.resx">
       <DependentUpon>StartMenu.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="SystemInfoApp.resx">
       <DependentUpon>SystemInfoApp.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Taskbar.resx">
+      <DependentUpon>Taskbar.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="FlooxOC_TemporaryKey.pfx" />
     <None Include="packages.config" />
