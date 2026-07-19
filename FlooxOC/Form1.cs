@@ -27,6 +27,9 @@ namespace FlooxOC
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
 
+            // ===== РЕГИСТРИРУЕМ ГЛАВНУЮ ФОРМУ В AppManager =====
+            AppManager.SetMainForm(this);
+
             LoadWallpaperColor();
             InitializeTaskbar();
             InitializeDesktop();
@@ -35,7 +38,6 @@ namespace FlooxOC
 
             this.Load += (s, e) => CheckDemoStatus();
 
-            // ===== ТАЙМЕР ДЛЯ ОБНОВЛЕНИЯ РАСКЛАДКИ КЛАВИАТУРЫ =====
             Timer layoutTimer = new Timer();
             layoutTimer.Interval = 500;
             layoutTimer.Tick += (s, e) => UpdateLanguageIndicator();
@@ -49,7 +51,6 @@ namespace FlooxOC
 
             try
             {
-                // Получаем текущую раскладку клавиатуры
                 InputLanguage currentLayout = InputLanguage.CurrentInputLanguage;
                 string layoutName = currentLayout.Culture.Name;
                 string language = layoutName.Split('-')[0];
@@ -104,7 +105,6 @@ namespace FlooxOC
             taskbar.Name = "taskbar";
             taskbar.Padding = new Padding(3, 0, 3, 0);
 
-            // ===== КНОПКА ПУСК =====
             Button startBtn = new Button();
             startBtn.Text = " Пуск ";
             startBtn.Location = new Point(4, 8);
@@ -131,7 +131,6 @@ namespace FlooxOC
             startBtn.Click += (s, e) => ShowStartMenu();
             taskbar.Controls.Add(startBtn);
 
-            // ===== ПАНЕЛЬ ЗАДАЧ =====
             Panel taskButtonsPanel = new Panel();
             taskButtonsPanel.Location = new Point(84, 6);
             taskButtonsPanel.Size = new Size(taskbar.Width - 270, 42);
@@ -139,7 +138,6 @@ namespace FlooxOC
             taskButtonsPanel.Name = "taskButtonsPanel";
             taskbar.Controls.Add(taskButtonsPanel);
 
-            // ===== ПАНЕЛЬ ИНФОРМАЦИИ =====
             Panel infoPanel = new Panel();
             infoPanel.Size = new Size(175, 44);
             infoPanel.Location = new Point(taskbar.Width - 180, 4);
@@ -147,7 +145,6 @@ namespace FlooxOC
             infoPanel.BorderStyle = BorderStyle.Fixed3D;
             infoPanel.Cursor = Cursors.Hand;
 
-            // ===== ИНДИКАТОР РАСКЛАДКИ КЛАВИАТУРЫ =====
             string initialLanguage = "EN";
             try
             {
@@ -168,7 +165,6 @@ namespace FlooxOC
             languageLabel.BorderStyle = BorderStyle.FixedSingle;
             infoPanel.Controls.Add(languageLabel);
 
-            // Дата
             Label dateLabel = new Label();
             dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
             dateLabel.Font = new Font("Segoe UI", 7);
@@ -178,7 +174,6 @@ namespace FlooxOC
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
             infoPanel.Controls.Add(dateLabel);
 
-            // Время
             clockLabel = new Label();
             clockLabel.Text = DateTime.Now.ToString("HH:mm");
             clockLabel.Font = new Font("Segoe UI", 14, FontStyle.Bold);
@@ -189,7 +184,6 @@ namespace FlooxOC
             clockLabel.Name = "clockLabel";
             infoPanel.Controls.Add(clockLabel);
 
-            // Демо-статус
             demoStatusLabel = new Label();
             demoStatusLabel.Text = "";
             demoStatusLabel.Font = new Font("Segoe UI", 7);
@@ -200,7 +194,6 @@ namespace FlooxOC
             demoStatusLabel.Visible = false;
             infoPanel.Controls.Add(demoStatusLabel);
 
-            // Клик по панели
             infoPanel.Click += (s, e) => ShowDateTimeInfo();
             dateLabel.Click += (s, e) => ShowDateTimeInfo();
             clockLabel.Click += (s, e) => ShowDateTimeInfo();
@@ -209,7 +202,6 @@ namespace FlooxOC
 
             taskbar.Controls.Add(infoPanel);
 
-            // ===== ТАЙМЕР ДЛЯ ЧАСОВ =====
             clockTimer = new Timer();
             clockTimer.Interval = 1000;
             clockTimer.Tick += (s, e) =>
@@ -379,6 +371,257 @@ namespace FlooxOC
             return maxY;
         }
 
+        // ===== ПОЛУЧЕНИЕ ПОЗИЦИИ КУРСОРА НА РАБОЧЕМ СТОЛЕ =====
+        private Point GetCursorPositionOnDesktop()
+        {
+            try
+            {
+                Point screenPos = Cursor.Position;
+                Point panelPos = desktopPanel.PointToClient(screenPos);
+
+                int iconWidth = 85;
+                int iconHeight = 80;
+                int padding = 10;
+
+                if (panelPos.X + iconWidth > desktopPanel.Width - padding)
+                    panelPos.X = desktopPanel.Width - iconWidth - padding;
+                if (panelPos.Y + iconHeight > desktopPanel.Height - padding)
+                    panelPos.Y = desktopPanel.Height - iconHeight - padding;
+                if (panelPos.X < padding)
+                    panelPos.X = padding;
+                if (panelPos.Y < padding)
+                    panelPos.Y = padding;
+
+                int snapX = 20;
+                int snapY = 20;
+                panelPos.X = (panelPos.X / snapX) * snapX;
+                panelPos.Y = (panelPos.Y / snapY) * snapY;
+
+                return panelPos;
+            }
+            catch
+            {
+                return new Point(20, GetNextIconY());
+            }
+        }
+
+        // ===== ДОБАВЛЕНИЕ ПРИЛОЖЕНИЯ =====
+        private void AddExternalApp()
+        {
+            using (OpenFileDialog ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Ярлыки (*.lnk)|*.lnk|Все файлы (*.*)|*.*";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        string name = Path.GetFileNameWithoutExtension(ofd.FileName);
+                        AppInfo app = new AppInfo
+                        {
+                            Name = name,
+                            ExecutablePath = ofd.FileName
+                        };
+                        AppManager.AddApp(app);
+
+                        Point cursorPos = GetCursorPositionOnDesktop();
+                        AddAppIconAtPosition(app, cursorPos);
+
+                        MessageBox.Show($"Приложение '{name}' добавлено!", "Успех",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void AddAppIconAtPosition(AppInfo app, Point position)
+        {
+            Image icon = AppManager.LoadAppIcon(app);
+            if (icon == null)
+                icon = CreateIcon("📦");
+
+            DesktopIcon appIcon = new DesktopIcon(app.Name, icon, "app");
+            appIcon.AppId = app.Id;
+            appIcon.Location = position;
+
+            appIcon.Click += (s, e) =>
+            {
+                var foundApp = AppManager.GetApps().Find(a => a.Id == appIcon.AppId);
+                if (foundApp != null)
+                    AppManager.LaunchApp(foundApp);
+            };
+
+            appIcon.OnDelete += (s, e) =>
+            {
+                DialogResult result = MessageBox.Show($"Удалить приложение '{app.Name}'?", "Подтверждение",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                {
+                    AppManager.RemoveApp(appIcon.AppId);
+                    desktopPanel.Controls.Remove(appIcon);
+                }
+            };
+
+            desktopPanel.Controls.Add(appIcon);
+        }
+
+        // ===== ДОБАВЛЕНИЕ ЗАКЛАДКИ =====
+        private void AddBookmark()
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Добавить закладку";
+                dialog.Size = new Size(400, 150);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                Label labelName = new Label();
+                labelName.Text = "URL сайта:";
+                labelName.Location = new Point(10, 10);
+                labelName.Size = new Size(80, 20);
+                dialog.Controls.Add(labelName);
+
+                TextBox textBox = new TextBox();
+                textBox.Text = "https://www.google.com";
+                textBox.Location = new Point(100, 10);
+                textBox.Size = new Size(270, 20);
+                dialog.Controls.Add(textBox);
+
+                Button okBtn = new Button();
+                okBtn.Text = "Добавить";
+                okBtn.Location = new Point(200, 45);
+                okBtn.Size = new Size(80, 25);
+                okBtn.BackColor = Color.FromArgb(0, 120, 215);
+                okBtn.ForeColor = Color.White;
+                okBtn.FlatStyle = FlatStyle.Flat;
+                okBtn.DialogResult = DialogResult.OK;
+                dialog.Controls.Add(okBtn);
+
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(290, 45);
+                cancelBtn.Size = new Size(80, 25);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.DialogResult = DialogResult.Cancel;
+                dialog.Controls.Add(cancelBtn);
+
+                if (dialog.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(textBox.Text))
+                {
+                    string url = textBox.Text;
+                    try
+                    {
+                        string name = "Сайт";
+                        try
+                        {
+                            Uri uri = new Uri(url);
+                            name = uri.Host;
+                            if (name.StartsWith("www.")) name = name.Substring(4);
+                        }
+                        catch { }
+
+                        WebBookmark bookmark = new WebBookmark
+                        {
+                            Name = name,
+                            Url = url
+                        };
+                        BookmarkManager.AddBookmark(bookmark);
+
+                        Point cursorPos = GetCursorPositionOnDesktop();
+                        AddBookmarkIconAtPosition(bookmark, cursorPos);
+
+                        MessageBox.Show($"Закладка '{name}' добавлена!", "Успех",
+                            MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch
+                    {
+                        MessageBox.Show("Неверный URL!", "Ошибка",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void AddBookmarkIconAtPosition(WebBookmark bookmark, Point position)
+        {
+            Image icon = BookmarkManager.LoadBookmarkIcon(bookmark);
+            if (icon == null)
+            {
+                try
+                {
+                    icon = BookmarkManager.GenerateFaviconFromUrl(bookmark.Url);
+                }
+                catch { icon = null; }
+                if (icon == null)
+                    icon = CreateIcon("🌐");
+            }
+
+            DesktopIcon bookmarkIcon = new DesktopIcon(bookmark.Name, icon, "bookmark");
+            bookmarkIcon.AppId = bookmark.Id;
+            bookmarkIcon.Location = position;
+
+            bookmarkIcon.Click += (s, e) =>
+            {
+                var found = BookmarkManager.GetBookmarks().Find(b => b.Id == bookmarkIcon.AppId);
+                if (found != null)
+                {
+                    OpenBookmark(found);
+                }
+            };
+
+            bookmarkIcon.OnDelete += (s, e) =>
+            {
+                DialogResult result = MessageBox.Show($"Удалить закладку '{bookmark.Name}'?", "Подтверждение",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.Yes)
+                {
+                    BookmarkManager.RemoveBookmark(bookmarkIcon.AppId);
+                    desktopPanel.Controls.Remove(bookmarkIcon);
+                }
+            };
+
+            desktopPanel.Controls.Add(bookmarkIcon);
+        }
+
+        // ===== СТАРЫЕ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ =====
+        private void AddAppIcon(AppInfo app)
+        {
+            Point cursorPos = GetCursorPositionOnDesktop();
+            AddAppIconAtPosition(app, cursorPos);
+        }
+
+        private void AddBookmarkIcon(WebBookmark bookmark)
+        {
+            Point cursorPos = GetCursorPositionOnDesktop();
+            AddBookmarkIconAtPosition(bookmark, cursorPos);
+        }
+
+        public void OpenBookmark(WebBookmark bookmark)
+        {
+            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
+            ModernBrowserApp browser = new ModernBrowserApp();
+            window.ContentControl = browser;
+            window.Size = new Size(1000, 700);
+            window.MinimumSize = new Size(600, 400);
+            this.Controls.Add(window);
+            window.BringToFront();
+
+            browser.NavigateTo(bookmark.Url);
+
+            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
+        }
+
+        private void RefreshDesktop()
+        {
+            desktopPanel.Refresh();
+        }
+
         private void ShowStartMenu()
         {
             using (Form menu = new Form())
@@ -479,202 +722,6 @@ namespace FlooxOC
 
                 menu.ShowDialog();
             }
-        }
-
-        private void AddExternalApp()
-        {
-            using (OpenFileDialog ofd = new OpenFileDialog())
-            {
-                ofd.Filter = "Исполняемые файлы (*.exe)|*.exe|Ярлыки (*.lnk)|*.lnk|Все файлы (*.*)|*.*";
-                if (ofd.ShowDialog() == DialogResult.OK)
-                {
-                    try
-                    {
-                        string name = Path.GetFileNameWithoutExtension(ofd.FileName);
-                        AppInfo app = new AppInfo
-                        {
-                            Name = name,
-                            ExecutablePath = ofd.FileName
-                        };
-                        AppManager.AddApp(app);
-                        AddAppIcon(app);
-                        MessageBox.Show($"Приложение '{name}' добавлено!", "Успех",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-            }
-        }
-
-        private void AddAppIcon(AppInfo app)
-        {
-            Image icon = AppManager.LoadAppIcon(app);
-            if (icon == null)
-                icon = CreateIcon("📦");
-
-            DesktopIcon appIcon = new DesktopIcon(app.Name, icon, "app");
-            appIcon.AppId = app.Id;
-            appIcon.Location = new Point(20, GetNextIconY());
-
-            appIcon.Click += (s, e) =>
-            {
-                var foundApp = AppManager.GetApps().Find(a => a.Id == appIcon.AppId);
-                if (foundApp != null)
-                    AppManager.LaunchApp(foundApp);
-            };
-
-            appIcon.OnDelete += (s, e) =>
-            {
-                DialogResult result = MessageBox.Show($"Удалить приложение '{app.Name}'?", "Подтверждение",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
-                {
-                    AppManager.RemoveApp(appIcon.AppId);
-                    desktopPanel.Controls.Remove(appIcon);
-                }
-            };
-
-            desktopPanel.Controls.Add(appIcon);
-        }
-
-        private void AddBookmark()
-        {
-            using (Form dialog = new Form())
-            {
-                dialog.Text = "Добавить закладку";
-                dialog.Size = new Size(400, 150);
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.BackColor = Color.FromArgb(192, 192, 192);
-
-                Label labelName = new Label();
-                labelName.Text = "URL сайта:";
-                labelName.Location = new Point(10, 10);
-                labelName.Size = new Size(80, 20);
-                dialog.Controls.Add(labelName);
-
-                TextBox textBox = new TextBox();
-                textBox.Text = "https://www.google.com";
-                textBox.Location = new Point(100, 10);
-                textBox.Size = new Size(270, 20);
-                dialog.Controls.Add(textBox);
-
-                Button okBtn = new Button();
-                okBtn.Text = "Добавить";
-                okBtn.Location = new Point(200, 45);
-                okBtn.Size = new Size(80, 25);
-                okBtn.BackColor = Color.FromArgb(0, 120, 215);
-                okBtn.ForeColor = Color.White;
-                okBtn.FlatStyle = FlatStyle.Flat;
-                okBtn.DialogResult = DialogResult.OK;
-                dialog.Controls.Add(okBtn);
-
-                Button cancelBtn = new Button();
-                cancelBtn.Text = "Отмена";
-                cancelBtn.Location = new Point(290, 45);
-                cancelBtn.Size = new Size(80, 25);
-                cancelBtn.FlatStyle = FlatStyle.Flat;
-                cancelBtn.DialogResult = DialogResult.Cancel;
-                dialog.Controls.Add(cancelBtn);
-
-                if (dialog.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(textBox.Text))
-                {
-                    string url = textBox.Text;
-                    try
-                    {
-                        string name = "Сайт";
-                        try
-                        {
-                            Uri uri = new Uri(url);
-                            name = uri.Host;
-                            if (name.StartsWith("www.")) name = name.Substring(4);
-                        }
-                        catch { }
-
-                        WebBookmark bookmark = new WebBookmark
-                        {
-                            Name = name,
-                            Url = url
-                        };
-                        BookmarkManager.AddBookmark(bookmark);
-                        AddBookmarkIcon(bookmark);
-                        MessageBox.Show($"Закладка '{name}' добавлена!", "Успех",
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    catch
-                    {
-                        MessageBox.Show("Неверный URL!", "Ошибка",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-            }
-        }
-
-        private void AddBookmarkIcon(WebBookmark bookmark)
-        {
-            Image icon = BookmarkManager.LoadBookmarkIcon(bookmark);
-            if (icon == null)
-            {
-                try
-                {
-                    icon = BookmarkManager.GenerateFaviconFromUrl(bookmark.Url);
-                }
-                catch { icon = null; }
-                if (icon == null)
-                    icon = CreateIcon("🌐");
-            }
-
-            DesktopIcon bookmarkIcon = new DesktopIcon(bookmark.Name, icon, "bookmark");
-            bookmarkIcon.AppId = bookmark.Id;
-            bookmarkIcon.Location = new Point(120, GetNextIconY());
-
-            bookmarkIcon.Click += (s, e) =>
-            {
-                var found = BookmarkManager.GetBookmarks().Find(b => b.Id == bookmarkIcon.AppId);
-                if (found != null)
-                {
-                    OpenBookmark(found);
-                }
-            };
-
-            bookmarkIcon.OnDelete += (s, e) =>
-            {
-                DialogResult result = MessageBox.Show($"Удалить закладку '{bookmark.Name}'?", "Подтверждение",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
-                {
-                    BookmarkManager.RemoveBookmark(bookmarkIcon.AppId);
-                    desktopPanel.Controls.Remove(bookmarkIcon);
-                }
-            };
-
-            desktopPanel.Controls.Add(bookmarkIcon);
-        }
-
-        public void OpenBookmark(WebBookmark bookmark)
-        {
-            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
-            ModernBrowserApp browser = new ModernBrowserApp();
-            window.ContentControl = browser;
-            window.Size = new Size(1000, 700);
-            window.MinimumSize = new Size(600, 400);
-            this.Controls.Add(window);
-            window.BringToFront();
-
-            browser.NavigateTo(bookmark.Url);
-
-            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
-        }
-
-        private void RefreshDesktop()
-        {
-            desktopPanel.Refresh();
         }
 
         private void SaveDesktopLayout()
@@ -902,7 +949,8 @@ namespace FlooxOC
             }
         }
 
-        private void AddTaskbarButton(string text, CustomWindow window)
+        // ===== ДОБАВЛЕНИЕ КНОПКИ НА ПАНЕЛЬ ЗАДАЧ (ПУБЛИЧНЫЙ МЕТОД) =====
+        public void AddTaskbarButton(string text, CustomWindow window)
         {
             Panel taskButtonsPanel = null;
             foreach (Control ctrl in taskbar.Controls)
@@ -1110,7 +1158,7 @@ namespace FlooxOC
             CustomWindow window = new CustomWindow("ℹ️ Информация о системе");
             SystemInfoApp info = new SystemInfoApp();
             window.ContentControl = info;
-            window.Size = new Size(500, 550);
+            window.Size = new Size(480, 550);
             window.MinimumSize = new Size(450, 500);
             this.Controls.Add(window);
             window.BringToFront();
@@ -1316,7 +1364,6 @@ namespace FlooxOC
                 File.WriteAllText(settingsPath, json);
                 savedWallpaperColor = color;
 
-                // ===== ПРИМЕНЯЕМ ЦВЕТА =====
                 this.BackColor = color;
                 ColorHelper.ApplyContrastToControls(this);
                 this.Refresh();
@@ -1326,9 +1373,6 @@ namespace FlooxOC
 
         public void ResetIconsToDefault()
         {
-            // ===== НОВАЯ ЛОГИКА: ТОЛЬКО РАССТАНОВКА, БЕЗ УДАЛЕНИЯ =====
-
-            // Получаем все иконки (и системные, и добавленные)
             List<DesktopIcon> icons = new List<DesktopIcon>();
             foreach (Control ctrl in desktopPanel.Controls)
             {
@@ -1345,18 +1389,13 @@ namespace FlooxOC
                 return;
             }
 
-            // Сортируем иконки: сначала системные, потом остальные (по алфавиту)
             icons.Sort((a, b) =>
             {
-                // Системные иконки всегда сверху
                 if (a.Type == "system" && b.Type != "system") return -1;
                 if (a.Type != "system" && b.Type == "system") return 1;
-
-                // Остальные по алфавиту
                 return string.Compare(a.GetText(), b.GetText(), StringComparison.OrdinalIgnoreCase);
             });
 
-            // Расставляем иконки по сетке
             int x = 20;
             int y = 20;
             int spacingX = 95;
@@ -1375,10 +1414,8 @@ namespace FlooxOC
                 }
             }
 
-            // Сохраняем текущий макет
             DesktopLayoutManager.SaveCurrentLayout(desktopPanel);
 
-            // Уведомляем пользователя
             MessageBox.Show($"✅ Иконки расставлены!\nВсего иконок: {icons.Count}\n" +
                 $"Системных: {icons.FindAll(i => i.Type == "system").Count}\n" +
                 $"Добавленных: {icons.FindAll(i => i.Type != "system").Count}",
@@ -1392,8 +1429,6 @@ namespace FlooxOC
             this.BackColor = Color.FromArgb(0, 128, 128);
             SaveWallpaperColor(this.BackColor);
 
-            // ===== НЕ УДАЛЯЕМ ИКОНКИ =====
-            // Просто расставляем их по сетке
             ResetIconsToDefault();
 
             var layouts = DesktopLayoutManager.GetLayoutsList();

@@ -12,17 +12,24 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FlooxOC. Home Version", "Apps"
+            "Floox OC. Home Version", "Apps"
         );
         private static string AppsFile = Path.Combine(DataPath, "apps.json");
         private static string IconsFolder = Path.Combine(DataPath, "Icons");
         private static List<AppInfo> apps = new List<AppInfo>();
+        private static Form1 mainForm; // Ссылка на главную форму
 
         static AppManager()
         {
             Directory.CreateDirectory(DataPath);
             Directory.CreateDirectory(IconsFolder);
             LoadApps();
+        }
+
+        // ===== УСТАНОВКА ГЛАВНОЙ ФОРМЫ =====
+        public static void SetMainForm(Form1 form)
+        {
+            mainForm = form;
         }
 
         public static List<AppInfo> GetApps()
@@ -32,42 +39,33 @@ namespace FlooxOC
 
         public static void AddApp(AppInfo app)
         {
-            // === ИЗВЛЕКАЕМ ИКОНКУ ИЗ .EXE ===
             if (!string.IsNullOrEmpty(app.ExecutablePath) && File.Exists(app.ExecutablePath))
             {
                 try
                 {
-                    // Извлекаем иконку из exe
                     Icon icon = Icon.ExtractAssociatedIcon(app.ExecutablePath);
                     if (icon != null)
                     {
-                        // Конвертируем в Bitmap
                         Bitmap bitmap = icon.ToBitmap();
-
-                        // Сохраняем в папку
                         string iconName = $"{app.Id}.png";
                         string destPath = Path.Combine(IconsFolder, iconName);
                         bitmap.Save(destPath, System.Drawing.Imaging.ImageFormat.Png);
                         app.IconPath = destPath;
-
                         bitmap.Dispose();
                         icon.Dispose();
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Если не удалось извлечь иконку, используем стандартную
                     Console.WriteLine($"Ошибка извлечения иконки: {ex.Message}");
                 }
             }
 
-            // Если иконка не найдена — используем стандартную
             if (string.IsNullOrEmpty(app.IconPath))
             {
                 string iconName = $"{app.Id}.png";
                 string destPath = Path.Combine(IconsFolder, iconName);
 
-                // Создаём стандартную иконку
                 Bitmap defaultIcon = new Bitmap(40, 40);
                 using (Graphics g = Graphics.FromImage(defaultIcon))
                 {
@@ -91,7 +89,6 @@ namespace FlooxOC
             var app = apps.Find(a => a.Id == appId);
             if (app != null)
             {
-                // === БЕЗОПАСНОЕ УДАЛЕНИЕ ===
                 try
                 {
                     if (!string.IsNullOrEmpty(app.IconPath) && File.Exists(app.IconPath))
@@ -109,42 +106,114 @@ namespace FlooxOC
             }
         }
 
+        // ===== ЗАПУСК ПРИЛОЖЕНИЯ ВО ВНУТРЕННЕМ ОКНЕ =====
         public static bool LaunchApp(AppInfo app)
         {
-            MessageBox.Show($"1. LaunchApp вызван для: {app.Name}", "Отладка");
-
-            if (string.IsNullOrEmpty(app.ExecutablePath) || !File.Exists(app.ExecutablePath))
+            if (mainForm == null)
             {
-                MessageBox.Show($"2. Файл не найден:\n{app.ExecutablePath}", "Ошибка",
+                MessageBox.Show("Главное окно не найдено!", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
 
-            MessageBox.Show($"3. Файл существует: {app.ExecutablePath}", "Отладка");
+            if (string.IsNullOrEmpty(app.ExecutablePath) || !File.Exists(app.ExecutablePath))
+            {
+                MessageBox.Show($"Файл не найден:\n{app.ExecutablePath}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
 
             try
             {
+                // Создаём внутреннее окно для приложения
+                CustomWindow window = new CustomWindow(app.Name);
+                window.Size = new Size(800, 600);
+                window.MinimumSize = new Size(400, 300);
+
+                // Создаём панель для встраивания приложения
+                Panel hostPanel = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = CustomWindow.DefaultBackground
+                };
+
+                // Запускаем процесс и встраиваем его в панель
                 System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = app.ExecutablePath,
                     Arguments = app.Arguments,
                     WorkingDirectory = string.IsNullOrEmpty(app.WorkingDirectory) ?
                         Path.GetDirectoryName(app.ExecutablePath) : app.WorkingDirectory,
-                    UseShellExecute = true
+                    UseShellExecute = true,
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal
                 };
 
-                MessageBox.Show($"4. Запускаем процесс...", "Отладка");
-                System.Diagnostics.Process.Start(startInfo);
-                MessageBox.Show($"5. Процесс запущен!", "Отладка");
+                System.Diagnostics.Process process = System.Diagnostics.Process.Start(startInfo);
+
+                if (process != null)
+                {
+                    // Даём процессу время на запуск
+                    System.Threading.Thread.Sleep(500);
+
+                    // Встраиваем окно процесса в наш hostPanel
+                    IntPtr handle = process.MainWindowHandle;
+                    if (handle != IntPtr.Zero)
+                    {
+                        // Устанавливаем родительское окно
+                        SetParent(handle, hostPanel.Handle);
+
+                        // Разворачиваем на весь hostPanel
+                        ShowWindow(handle, 3); // SW_MAXIMIZE
+                    }
+                    else
+                    {
+                        // Если не удалось получить handle, ждём ещё
+                        System.Threading.Thread.Sleep(1000);
+                        handle = process.MainWindowHandle;
+                        if (handle != IntPtr.Zero)
+                        {
+                            SetParent(handle, hostPanel.Handle);
+                            ShowWindow(handle, 3);
+                        }
+                    }
+                }
+
+                window.ContentControl = hostPanel;
+                mainForm.Controls.Add(window);
+                window.BringToFront();
+
+                // Обработка закрытия окна
+                window.Closed += (s, e) =>
+                {
+                    try
+                    {
+                        if (process != null && !process.HasExited)
+                        {
+                            process.Kill();
+                            process.Dispose();
+                        }
+                    }
+                    catch { }
+                };
+
+                window.Minimized += (s, e) => mainForm.AddTaskbarButton(app.Name, window);
+
                 return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"6. Ошибка запуска:\n{ex.Message}", "Ошибка",
+                MessageBox.Show($"Ошибка запуска:\n{ex.Message}", "Ошибка",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
         }
+
+        // ===== ИМПОРТЫ WINAPI ДЛЯ ВСТРАИВАНИЯ ОКОН =====
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         public static Image LoadAppIcon(AppInfo app)
         {
@@ -159,28 +228,23 @@ namespace FlooxOC
             return null;
         }
 
-        // ====== ИЗВЛЕЧЕНИЕ ИКОНКИ ИЗ ЛЮБОГО ФАЙЛА ======
         public static Image ExtractIconFromFile(string filePath)
         {
             try
             {
                 if (File.Exists(filePath))
                 {
-                    // Проверяем, является ли файл ярлыком (.lnk)
                     if (filePath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Извлекаем путь из ярлыка
                         string targetPath = ResolveShortcut(filePath);
                         if (!string.IsNullOrEmpty(targetPath) && File.Exists(targetPath))
                         {
-                            // Извлекаем иконку из целевого файла
                             Icon icon = Icon.ExtractAssociatedIcon(targetPath);
                             if (icon != null)
                                 return icon.ToBitmap();
                         }
                     }
 
-                    // Обычный файл .exe
                     Icon exeIcon = Icon.ExtractAssociatedIcon(filePath);
                     if (exeIcon != null)
                         return exeIcon.ToBitmap();
@@ -190,12 +254,10 @@ namespace FlooxOC
             return null;
         }
 
-        // ====== РАЗРЕШЕНИЕ ЯРЛЫКА (.lnk) ======
         public static string ResolveShortcut(string shortcutPath)
         {
             try
             {
-                // Создаём объект Shell для работы с ярлыками
                 dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
                 dynamic shortcut = shell.CreateShortcut(shortcutPath);
                 string target = shortcut.TargetPath;
@@ -207,13 +269,10 @@ namespace FlooxOC
             }
         }
 
-        // ====== ПОЛУЧЕНИЕ ИКОНКИ ДЛЯ ДИАЛОГА ======
         public static Image GetIconForFile(string filePath)
         {
-            // Пытаемся извлечь иконку
             Image icon = ExtractIconFromFile(filePath);
 
-            // Если не удалось — создаём заглушку с первой буквой
             if (icon == null)
             {
                 string name = Path.GetFileNameWithoutExtension(filePath);

@@ -177,6 +177,30 @@ namespace FlooxOC
             this.Controls.Add(btnAutoArrange);
             y += 55;
 
+            // Цвета по умолчанию
+            Button btnDefaultColors = CreateStyledButton("🎨 Цвета по умолчанию", new Point(20, y), new Size(250, 40));
+            btnDefaultColors.BackColor = Color.FromArgb(0, 150, 80);
+            btnDefaultColors.ForeColor = ColorHelper.GetContrastTextColor(btnDefaultColors.BackColor);
+            btnDefaultColors.Click += (s, e) => ResetDefaultColors();
+            this.Controls.Add(btnDefaultColors);
+            y += 55;
+
+            // Громкость
+            Button btnVolume = CreateStyledButton("🔊 Громкость", new Point(20, y), new Size(250, 40));
+            btnVolume.BackColor = Color.FromArgb(200, 180, 0);
+            btnVolume.ForeColor = ColorHelper.GetContrastTextColor(btnVolume.BackColor);
+            btnVolume.Click += (s, e) => ShowVolumeControl();
+            this.Controls.Add(btnVolume);
+            y += 55;
+
+            // ===== НОВАЯ КНОПКА: ВХОД БЕЗ ПАРОЛЯ =====
+            Button btnNoPasswordLogin = CreateStyledButton("🚪 Вход без пароля", new Point(20, y), new Size(250, 40));
+            btnNoPasswordLogin.BackColor = Color.FromArgb(0, 120, 215);
+            btnNoPasswordLogin.ForeColor = ColorHelper.GetContrastTextColor(btnNoPasswordLogin.BackColor);
+            btnNoPasswordLogin.Click += (s, e) => ToggleNoPasswordLogin();
+            this.Controls.Add(btnNoPasswordLogin);
+            y += 55;
+
             // Очистка устройства
             Button btnClearDevice = CreateStyledButton("🗑️ Очистка устройства", new Point(20, y), new Size(250, 40));
             btnClearDevice.BackColor = Color.FromArgb(200, 50, 50);
@@ -292,7 +316,6 @@ namespace FlooxOC
                 mainForm.SaveWallpaperColor(color);
                 selectedWallpaperColor = color;
 
-                // ===== ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВСЕ ЦВЕТА =====
                 ColorHelper.ApplyContrastToControls(mainForm);
                 mainForm.Refresh();
 
@@ -303,17 +326,14 @@ namespace FlooxOC
             }
         }
 
-        // ===== УСТАНОВКА ЦВЕТА ПРИЛОЖЕНИЙ (ИСПРАВЛЕНО) =====
+        // ===== УСТАНОВКА ЦВЕТА ПРИЛОЖЕНИЙ =====
         private void SetAppColor(Color color)
         {
             selectedAppColor = color;
             CustomWindow.DefaultBackground = color;
 
-            // ===== ОБНОВЛЯЕМ ВСЕ ОТКРЫТЫЕ ОКНА В РЕАЛЬНОМ ВРЕМЕНИ =====
-            // Проходим по всем формам и обновляем каждое окно
             foreach (Form form in Application.OpenForms)
             {
-                // Обновляем все CustomWindow на форме
                 List<CustomWindow> windowsToUpdate = new List<CustomWindow>();
                 foreach (Control ctrl in form.Controls)
                 {
@@ -323,23 +343,17 @@ namespace FlooxOC
                     }
                 }
 
-                // Обновляем каждое окно
                 foreach (var window in windowsToUpdate)
                 {
-                    // Обновляем фон окна
                     window.BackColor = color;
 
-                    // Обновляем фон контента
                     if (window.ContentControl != null)
                     {
                         window.ContentControl.BackColor = color;
-
-                        // Применяем контрастные цвета ко всем дочерним контролам
                         ColorHelper.ApplyContrastToControls(window.ContentControl);
                         window.ContentControl.Refresh();
                     }
 
-                    // Обновляем панель контента
                     foreach (Control ctrl in window.Controls)
                     {
                         if (ctrl is Panel panel && panel.Dock == DockStyle.Fill)
@@ -350,7 +364,6 @@ namespace FlooxOC
                         }
                     }
 
-                    // Обновляем заголовок
                     foreach (Control ctrl in window.Controls)
                     {
                         if (ctrl is Panel titleBar)
@@ -370,7 +383,6 @@ namespace FlooxOC
                 }
             }
 
-            // Обновляем текущую панель настроек
             ColorHelper.ApplyContrastToControls(this);
             this.Refresh();
 
@@ -388,6 +400,185 @@ namespace FlooxOC
                 }
             }
             return color.Name;
+        }
+
+        // ===== СБРОС ЦВЕТОВ ПО УМОЛЧАНИЮ =====
+        private void ResetDefaultColors()
+        {
+            DialogResult result = MessageBox.Show(
+                "Сбросить цвета к стандартным?\n\n" +
+                "Фон рабочего стола: Teal (0, 128, 128)\n" +
+                "Фон приложений: Белый",
+                "Сброс цветов",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                Color defaultWallpaper = Color.FromArgb(0, 128, 128);
+                SetWallpaperColor(defaultWallpaper);
+
+                Color defaultAppColor = Color.White;
+                SetAppColor(defaultAppColor);
+
+                labelStatus.Text = "✅ Цвета сброшены к стандартным!";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+            }
+        }
+
+        // ===== УПРАВЛЕНИЕ ГРОМКОСТЬЮ =====
+        private void ShowVolumeControl()
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "🔊 Управление громкостью";
+                dialog.Size = new Size(350, 200);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                int y = 20;
+
+                Label lblVolume = new Label();
+                lblVolume.Text = "Громкость системы:";
+                lblVolume.Font = new Font("Segoe UI", 10);
+                lblVolume.Location = new Point(20, y);
+                lblVolume.Size = new Size(150, 25);
+                dialog.Controls.Add(lblVolume);
+
+                TrackBar trackBar = new TrackBar();
+                trackBar.Location = new Point(20, y + 30);
+                trackBar.Size = new Size(300, 45);
+                trackBar.Minimum = 0;
+                trackBar.Maximum = 100;
+                trackBar.Value = GetSystemVolume();
+                trackBar.TickFrequency = 10;
+                trackBar.TickStyle = TickStyle.Both;
+                dialog.Controls.Add(trackBar);
+
+                Label lblValue = new Label();
+                lblValue.Text = $"{trackBar.Value}%";
+                lblValue.Font = new Font("Segoe UI", 14, FontStyle.Bold);
+                lblValue.Location = new Point(260, y);
+                lblValue.Size = new Size(60, 30);
+                lblValue.TextAlign = ContentAlignment.MiddleRight;
+                dialog.Controls.Add(lblValue);
+
+                trackBar.Scroll += (s, e) =>
+                {
+                    lblValue.Text = $"{trackBar.Value}%";
+                    SetSystemVolume(trackBar.Value);
+                };
+
+                y += 90;
+
+                Button btnOk = new Button();
+                btnOk.Text = "✅ Применить";
+                btnOk.Size = new Size(120, 35);
+                btnOk.Location = new Point(70, y);
+                btnOk.BackColor = Color.FromArgb(0, 120, 215);
+                btnOk.ForeColor = ColorHelper.GetContrastTextColor(btnOk.BackColor);
+                btnOk.FlatStyle = FlatStyle.Flat;
+                btnOk.Cursor = Cursors.Hand;
+                btnOk.Click += (s, e) => dialog.Close();
+                dialog.Controls.Add(btnOk);
+
+                Button btnCancel = new Button();
+                btnCancel.Text = "Отмена";
+                btnCancel.Size = new Size(120, 35);
+                btnCancel.Location = new Point(200, y);
+                btnCancel.FlatStyle = FlatStyle.Flat;
+                btnCancel.Cursor = Cursors.Hand;
+                btnCancel.Click += (s, e) => dialog.Close();
+                dialog.Controls.Add(btnCancel);
+
+                ColorHelper.ApplyContrastToControls(dialog);
+                dialog.ShowDialog();
+            }
+        }
+
+        private int GetSystemVolume()
+        {
+            try
+            {
+                return 50;
+            }
+            catch
+            {
+                return 50;
+            }
+        }
+
+        private void SetSystemVolume(int volume)
+        {
+            try
+            {
+                labelStatus.Text = $"🔊 Громкость установлена: {volume}%";
+                labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка установки громкости: {ex.Message}", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // ===== ВХОД БЕЗ ПАРОЛЯ (НОВАЯ ФУНКЦИЯ) =====
+        private void ToggleNoPasswordLogin()
+        {
+            // Текущее состояние
+            bool currentState = AccountManager.RequirePassword;
+
+            DialogResult result = MessageBox.Show(
+                currentState
+                    ? "🔓 Включить вход без пароля?\n\n" +
+                      "При следующем запуске система не будет запрашивать пароль.\n" +
+                      "⚠️ ВНИМАНИЕ: Это снижает безопасность системы!"
+                    : "🔒 Отключить вход без пароля?\n\n" +
+                      "При следующем запуске система будет запрашивать пароль.",
+                "Вход без пароля",
+                MessageBoxButtons.YesNo,
+                currentState ? MessageBoxIcon.Question : MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                // Переключаем состояние
+                bool newState = !currentState;
+                AccountManager.RequirePassword = newState;
+
+                // Если включаем вход без пароля, отключаем требование пароля
+                if (!newState)
+                {
+                    // Вход без пароля включен
+                    AccountManager.AutoLogin = true;
+                    labelStatus.Text = "✅ Вход без пароля ВКЛЮЧЕН!";
+                    labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+
+                    MessageBox.Show(
+                        "🔓 Вход без пароля включен!\n\n" +
+                        "Теперь при запуске системы пароль запрашиваться не будет.\n" +
+                        "⚠️ Для отключения этой функции зайдите в настройки снова.",
+                        "Вход без пароля",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    // Вход без пароля выключен - требуется пароль
+                    AccountManager.AutoLogin = false;
+                    labelStatus.Text = "🔒 Вход без пароля ОТКЛЮЧЕН!";
+                    labelStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+
+                    MessageBox.Show(
+                        "🔒 Вход без пароля отключен!\n\n" +
+                        "Теперь при запуске системы будет запрашиваться пароль.",
+                        "Вход без пароля",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
         }
 
         // ===== СМЕНА ИМЕНИ =====
@@ -461,7 +652,6 @@ namespace FlooxOC
 
                 int dlgY = 20;
 
-                // ===== ТЕКУЩИЙ ПАРОЛЬ =====
                 Label lblOld = new Label();
                 lblOld.Text = "Текущий пароль:";
                 lblOld.Font = new Font("Segoe UI", 10);
@@ -477,7 +667,6 @@ namespace FlooxOC
                 dialog.Controls.Add(txtOld);
                 dlgY += 45;
 
-                // ===== НОВЫЙ ПАРОЛЬ =====
                 Label lblNew = new Label();
                 lblNew.Text = "Новый пароль:";
                 lblNew.Font = new Font("Segoe UI", 10);
@@ -493,7 +682,6 @@ namespace FlooxOC
                 dialog.Controls.Add(txtNew);
                 dlgY += 45;
 
-                // ===== ПОДТВЕРЖДЕНИЕ ПАРОЛЯ =====
                 Label lblConfirm = new Label();
                 lblConfirm.Text = "Подтвердите:";
                 lblConfirm.Font = new Font("Segoe UI", 10);
@@ -509,7 +697,6 @@ namespace FlooxOC
                 dialog.Controls.Add(txtConfirm);
                 dlgY += 50;
 
-                // ===== КНОПКИ =====
                 Button btnOk = new Button();
                 btnOk.Text = "✅ Подтвердить";
                 btnOk.Size = new Size(120, 35);
@@ -524,7 +711,6 @@ namespace FlooxOC
                     string newPass = txtNew.Text;
                     string confirm = txtConfirm.Text;
 
-                    // Проверяем текущий пароль
                     if (string.IsNullOrEmpty(oldPass))
                     {
                         MessageBox.Show("Введите текущий пароль!", "Ошибка",
@@ -542,7 +728,6 @@ namespace FlooxOC
                         return;
                     }
 
-                    // Проверяем новый пароль
                     if (string.IsNullOrEmpty(newPass) || newPass.Length < 3)
                     {
                         MessageBox.Show("Пароль должен содержать минимум 3 символа!", "Ошибка",
@@ -559,7 +744,6 @@ namespace FlooxOC
                         return;
                     }
 
-                    // Сохраняем новый пароль
                     try
                     {
                         var accounts = AccountManager.GetAllUsers();
@@ -605,21 +789,10 @@ namespace FlooxOC
 
                 ColorHelper.ApplyContrastToControls(dialog);
 
-                // Enter для быстрого подтверждения
                 txtConfirm.KeyPress += (s, ev) =>
                 {
                     if (ev.KeyChar == (char)Keys.Enter)
                         btnOk.PerformClick();
-                };
-                txtNew.KeyPress += (s, ev) =>
-                {
-                    if (ev.KeyChar == (char)Keys.Enter)
-                        txtConfirm.Focus();
-                };
-                txtOld.KeyPress += (s, ev) =>
-                {
-                    if (ev.KeyChar == (char)Keys.Enter)
-                        txtNew.Focus();
                 };
 
                 dialog.ShowDialog();

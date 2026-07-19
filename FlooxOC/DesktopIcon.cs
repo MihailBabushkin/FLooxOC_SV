@@ -18,8 +18,8 @@ namespace FlooxOC
         private bool hasMoved = false;
         private bool contextMenuShown = false;
         private bool isLeftClickCompleted = false;
-        private DateTime lastClickTime;  // ← Время последнего клика
-        private Timer clickCooldownTimer; // ← Таймер для задержки
+        private DateTime lastClickTime;
+        private Timer clickCooldownTimer;
 
         public string AppId { get; set; }
         public string Type { get; set; }
@@ -33,7 +33,8 @@ namespace FlooxOC
             displayName = text;
             lastClickTime = DateTime.MinValue;
 
-            this.Size = new Size(80, 75);
+            // ===== УВЕЛИЧЕННЫЙ РАЗМЕР ДЛЯ ЛУЧШЕГО КЛИКА =====
+            this.Size = new Size(85, 80);
             this.FlatStyle = FlatStyle.Flat;
             this.FlatAppearance.BorderSize = 0;
             this.BackColor = Color.Transparent;
@@ -62,13 +63,11 @@ namespace FlooxOC
             rightClickTimer.Interval = 1800;
             rightClickTimer.Tick += RightClickTimer_Tick;
 
-            // === ТАЙМЕР ДЛЯ ЗАЩИТЫ ОТ ПОВТОРНОГО ОТКРЫТИЯ ===
             clickCooldownTimer = new Timer();
-            clickCooldownTimer.Interval = 1000; // 1 секунда
+            clickCooldownTimer.Interval = 1000;
             clickCooldownTimer.Tick += (s, e) =>
             {
                 clickCooldownTimer.Stop();
-                // Разблокируем клик
                 this.Enabled = true;
             };
 
@@ -120,25 +119,18 @@ namespace FlooxOC
             }
         }
 
-        // ====== БЕЗОПАСНЫЙ КЛИК С ЗАЩИТОЙ ОТ ПОВТОРОВ ======
         private void ExecuteSafeClick()
         {
-            // Проверяем, не было ли клика менее секунды назад
             TimeSpan timeSinceLastClick = DateTime.Now - lastClickTime;
             if (timeSinceLastClick.TotalMilliseconds < 1000)
             {
-                // Слишком часто — игнорируем
                 return;
             }
 
-            // Блокируем кнопку на 1 секунду
             this.Enabled = false;
             clickCooldownTimer.Start();
-
-            // Запоминаем время клика
             lastClickTime = DateTime.Now;
 
-            // Вызываем событие Click
             this.OnClick(EventArgs.Empty);
         }
 
