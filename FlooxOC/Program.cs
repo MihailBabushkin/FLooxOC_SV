@@ -12,46 +12,61 @@ namespace FlooxOC
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // ===== ПРОВЕРКА АРГУМЕНТОВ =====
-            string[] args = Environment.GetCommandLineArgs();
-
-            // Если передан аргумент /install, запускаем установщик
-            if (args.Length > 1 && args[1].ToLower() == "/install")
-            {
-                try
-                {
-                    Application.Run(new InstallerApp());
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка установщика: {ex.Message}", "Критическая ошибка",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                return;
-            }
-
-            // ===== ОСНОВНОЙ ЗАПУСК ОС =====
             try
             {
                 // === ПРОВЕРКА АКТИВАЦИИ ===
                 if (AccountManager.IsFirstRun())
                 {
-                    using (var activationDialog = new ActivationDialog())
+                    // Если первый запуск и нет кода - запускаем демо
+                    DialogResult result = MessageBox.Show(
+                        "🆓 Добро пожаловать!\n\n" +
+                        "У вас есть возможность:\n" +
+                        "1. ✅ Активировать систему (ввести код)\n" +
+                        "2. 🆓 Начать ДЕМО-режим (45 минут)\n\n" +
+                        "💡 Тестовый код: DEMO-2024\n\n" +
+                        "Выберите вариант:",
+                        "Активация",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
                     {
-                        activationDialog.ShowDialog();
-                        if (!activationDialog.IsActivated)
+                        // Активация
+                        using (var activationDialog = new ActivationDialog())
                         {
-                            MessageBox.Show("Для использования системы необходима активация!", "Ошибка",
-                                MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            return;
+                            activationDialog.ShowDialog();
+                            if (!activationDialog.IsActivated)
+                            {
+                                MessageBox.Show("Для использования системы необходима активация!\n" +
+                                    "Или выберите ДЕМО-режим.",
+                                    "Ошибка",
+                                    MessageBoxButtons.OK,
+                                    MessageBoxIcon.Error);
+                                return;
+                            }
                         }
                     }
+                    else
+                    {
+                        // Демо-режим
+                        AccountManager.StartDemoMode(new Form1());
+                    }
+                }
+
+                // === ПРОВЕРКА ДЕМО-РЕЖИМА ===
+                if (AccountManager.IsDemoMode && AccountManager.IsDemoExpired)
+                {
+                    MessageBox.Show("⏰ Демо-режим истёк!\n" +
+                        "Для продолжения работы активируйте систему.",
+                        "Демо-режим завершён",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
                 }
 
                 // === ПРОВЕРКА ВХОДА ===
                 bool loggedIn = false;
 
-                // Если есть пользователи или требуется пароль
                 if (AccountManager.GetAllUsers().Count > 0 || AccountManager.RequirePassword)
                 {
                     using (var loginDialog = new LoginDialog())
@@ -66,15 +81,28 @@ namespace FlooxOC
                         return;
                     }
                 }
-                else
+                else if (!AccountManager.IsDemoMode)
                 {
-                    // Если нет пользователей и пароль не требуется - создаём гостя
                     AccountManager.RegisterUser("guest", "", "Гость");
                     AccountManager.Login("guest", "");
                 }
+                else
+                {
+                    // В демо-режиме создаём временного пользователя
+                    AccountManager.RegisterUser("demo", "", "Демо-пользователь");
+                    AccountManager.Login("demo", "");
+                }
 
                 // === ЗАПУСК ОС ===
-                Application.Run(new Form1());
+                var mainForm = new Form1();
+
+                // Если демо-режим, проверяем статус
+                if (AccountManager.IsDemoMode)
+                {
+                    mainForm.Load += (s, e) => mainForm.CheckDemoStatus();
+                }
+
+                Application.Run(mainForm);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FlooxOC;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -14,7 +15,7 @@ namespace FlooxOC
     {
         private static string DataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Floox Oc. Home Version", "Accounts"
+            "MyOS95", "Accounts"
         );
         private static string AccountsFile = Path.Combine(DataPath, "accounts.json");
         private static string SettingsFile = Path.Combine(DataPath, "settings.json");
@@ -43,11 +44,20 @@ namespace FlooxOC
             public string ActivationCode { get; set; } = "";
             public string MachineId { get; set; } = "";
             public int MaxLoginAttempts { get; set; } = 3;
+
+            // === ДЕМО-РЕЖИМ ===
+            public bool IsDemoMode { get; set; } = false;
+            public DateTime DemoStartTime { get; set; } = DateTime.MinValue;
+            public int DemoMinutesLimit { get; set; } = 45;
+            public bool IsDemoExpired { get; set; } = false;
         }
 
         private static AppSettings settings = new AppSettings();
         private static AccountData currentUser = null;
         private static readonly HttpClient httpClient = new HttpClient();
+        private static Timer demoWarningTimer;
+        private static Timer demoExpireTimer;
+        private static Form1 mainForm;
 
         public static bool RequirePassword
         {
@@ -79,6 +89,26 @@ namespace FlooxOC
             }
         }
 
+        public static bool IsDemoMode
+        {
+            get => settings.IsDemoMode;
+            set
+            {
+                settings.IsDemoMode = value;
+                SaveSettings();
+            }
+        }
+
+        public static bool IsDemoExpired
+        {
+            get => settings.IsDemoExpired;
+            set
+            {
+                settings.IsDemoExpired = value;
+                SaveSettings();
+            }
+        }
+
         static AccountManager()
         {
             Directory.CreateDirectory(DataPath);
@@ -91,15 +121,12 @@ namespace FlooxOC
             }
         }
 
-        // ====== УПРОЩЁННЫЙ МЕТОД ПОЛУЧЕНИЯ ID КОМПЬЮТЕРА (БЕЗ System.Management) ======
         private static string GetMachineId()
         {
             try
             {
-                // Используем имя компьютера и GUID для создания уникального ID
                 string combined = Environment.MachineName + Environment.UserName + Environment.OSVersion.Platform.ToString();
 
-                // Добавляем информацию о дисках (простой способ)
                 try
                 {
                     foreach (var drive in DriveInfo.GetDrives())
@@ -148,7 +175,13 @@ namespace FlooxOC
                     {
                         settings.ActivationCode = code;
                         settings.FirstRun = false;
+                        settings.IsDemoMode = false;
+                        settings.IsDemoExpired = false;
+                        settings.DemoStartTime = DateTime.MinValue;
                         SaveSettings();
+
+                        StopDemoTimers();
+
                         return true;
                     }
                     else
@@ -172,7 +205,13 @@ namespace FlooxOC
                 {
                     settings.ActivationCode = code;
                     settings.FirstRun = false;
+                    settings.IsDemoMode = false;
+                    settings.IsDemoExpired = false;
+                    settings.DemoStartTime = DateTime.MinValue;
                     SaveSettings();
+
+                    StopDemoTimers();
+
                     return true;
                 }
                 return false;
@@ -181,7 +220,7 @@ namespace FlooxOC
 
         public static bool ValidateCodeLocally(string code)
         {
-            string[] validCodes = { "DEMO-2026", "TEST-1234", "FREE-2024" };
+            string[] validCodes = { "DEMO-2024", "TEST-1234", "FREE-2024" };
             foreach (var valid in validCodes)
             {
                 if (code == valid)
@@ -222,7 +261,7 @@ namespace FlooxOC
                 Login = login,
                 PasswordHash = settings.RequirePassword ? HashPassword(password) : "",
                 ActivationCode = settings.ActivationCode,
-                IsActivated = true,
+                IsActivated = !settings.IsDemoMode,
                 CreatedDate = DateTime.Now,
                 LastLogin = DateTime.Now,
                 UserName = string.IsNullOrEmpty(userName) ? login : userName
@@ -291,7 +330,7 @@ namespace FlooxOC
 
         public static bool IsActivated()
         {
-            return !string.IsNullOrEmpty(settings.ActivationCode);
+            return !string.IsNullOrEmpty(settings.ActivationCode) && !settings.IsDemoMode;
         }
 
         public static string GetLastUser()
@@ -321,6 +360,145 @@ namespace FlooxOC
                 byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
                 return Convert.ToBase64String(bytes);
             }
+        }
+
+        // ====== ДЕМО-РЕЖИМ ======
+        public static void StartDemoMode(Form1 form)
+        {
+            mainForm = form;
+            settings.IsDemoMode = true;
+            settings.DemoStartTime = DateTime.Now;
+            settings.IsDemoExpired = false;
+            SaveSettings();
+
+            // Таймер для предупреждения за 5 минут до окончания
+            int warningMinutes = settings.DemoMinutesLimit - 5;
+            if (warningMinutes > 0)
+            {
+                demoWarningTimer = new Timer();
+                demoWarningTimer.Interval = warningMinutes * 60 * 1000;
+                demoWarningTimer.Tick += (s, e) =>
+                {
+                    demoWarningTimer.Stop();
+                    ShowDemoWarning();
+                };
+                demoWarningTimer.Start();
+            }
+
+            // Таймер для завершения демо
+            demoExpireTimer = new Timer();
+            demoExpireTimer.Interval = settings.DemoMinutesLimit * 60 * 1000;
+            demoExpireTimer.Tick += (s, e) =>
+            {
+                demoExpireTimer.Stop();
+                ExpireDemo();
+            };
+            demoExpireTimer.Start();
+
+            // Показываем информацию о демо-режиме
+            ShowDemoInfo();
+        }
+
+        private static void ShowDemoInfo()
+        {
+            MessageBox.Show(
+                $"🆓 ДЕМО-РЕЖИМ\n\n" +
+                $"Время работы: {settings.DemoMinutesLimit} минут\n" +
+                $"Осталось: {settings.DemoMinutesLimit} минут\n\n" +
+                $"⚠️ Для полноценной работы активируйте систему.\n" +
+                $"Код активации можно получить у разработчика.\n\n" +
+                $"💡 Тестовый код: DEMO-2024",
+                "Демо-режим",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private static void ShowDemoWarning()
+        {
+            if (mainForm == null || mainForm.IsDisposed) return;
+
+            DialogResult result = MessageBox.Show(
+                $"⚠️ ВНИМАНИЕ!\n\n" +
+                $"До окончания демо-режима осталось 5 минут!\n\n" +
+                $"Вы можете:\n" +
+                $"1. Активировать систему (код активации)\n" +
+                $"2. Продолжить работу в демо-режиме\n\n" +
+                $"💡 Тестовый код: DEMO-2024\n" +
+                $"📝 Введите код в настройках аккаунта.",
+                "Демо-режим заканчивается",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                // Открываем окно активации
+                mainForm.ShowActivationDialog();
+            }
+        }
+
+        private static void ExpireDemo()
+        {
+            if (mainForm == null || mainForm.IsDisposed) return;
+
+            settings.IsDemoExpired = true;
+            SaveSettings();
+
+            // Блокируем все окна
+            mainForm.BeginInvoke((Action)(() =>
+            {
+                var result = MessageBox.Show(
+                    "⏰ ДЕМО-РЕЖИМ ЗАВЕРШЁН!\n\n" +
+                    "Время работы в демо-режиме истекло.\n" +
+                    "Для продолжения работы необходимо активировать систему.\n\n" +
+                    "💡 Тестовый код: DEMO-2024\n" +
+                    "📝 Введите код активации для продолжения.\n\n" +
+                    "Нажмите OK для ввода кода активации.",
+                    "Демо-режим завершён",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.OK)
+                {
+                    // Показываем окно активации
+                    mainForm.ShowActivationDialog();
+                }
+                else
+                {
+                    // Если пользователь закрыл окно, завершаем приложение
+                    Application.Exit();
+                }
+            }));
+        }
+
+        public static void StopDemoTimers()
+        {
+            if (demoWarningTimer != null)
+            {
+                demoWarningTimer.Stop();
+                demoWarningTimer.Dispose();
+                demoWarningTimer = null;
+            }
+
+            if (demoExpireTimer != null)
+            {
+                demoExpireTimer.Stop();
+                demoExpireTimer.Dispose();
+                demoExpireTimer = null;
+            }
+        }
+
+        public static string GetDemoTimeRemaining()
+        {
+            if (!settings.IsDemoMode || settings.IsDemoExpired)
+                return "0 мин";
+
+            var elapsed = DateTime.Now - settings.DemoStartTime;
+            var remaining = TimeSpan.FromMinutes(settings.DemoMinutesLimit) - elapsed;
+
+            if (remaining.TotalSeconds <= 0)
+                return "0 мин";
+
+            return $"{(int)remaining.TotalMinutes} мин {(int)remaining.Seconds} сек";
         }
 
         private static List<AccountData> LoadAccounts()

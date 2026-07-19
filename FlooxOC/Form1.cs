@@ -14,6 +14,8 @@ namespace FlooxOC
         private Label clockLabel;
         private Timer clockTimer;
         private Color savedWallpaperColor;
+        private Timer demoStatusTimer;
+        private Label demoStatusLabel;
 
         public Form1()
         {
@@ -28,6 +30,9 @@ namespace FlooxOC
             InitializeDesktop();
             InitializeDesktopContextMenu();
             LoadSavedItems();
+
+            // Проверяем демо-режим после загрузки формы
+            this.Load += (s, e) => CheckDemoStatus();
         }
 
         private void InitializeTaskbar()
@@ -43,7 +48,7 @@ namespace FlooxOC
             // ===== КНОПКА ПУСК (Win95 стиль) =====
             Button startBtn = new Button();
             startBtn.Text = " Пуск ";
-            startBtn.Location = new Point(4, 6);
+            startBtn.Location = new Point(4, 8);
             startBtn.Size = new Size(75, 40);
             startBtn.FlatStyle = FlatStyle.Flat;
             startBtn.FlatAppearance.BorderSize = 1;
@@ -70,26 +75,26 @@ namespace FlooxOC
             // ===== ПАНЕЛЬ ЗАДАЧ =====
             Panel taskButtonsPanel = new Panel();
             taskButtonsPanel.Location = new Point(84, 6);
-            taskButtonsPanel.Size = new Size(taskbar.Width - 240, 40);
+            taskButtonsPanel.Size = new Size(taskbar.Width - 260, 42);
             taskButtonsPanel.BackColor = Color.Transparent;
             taskButtonsPanel.Name = "taskButtonsPanel";
             taskbar.Controls.Add(taskButtonsPanel);
 
             // ===== ПАНЕЛЬ ИНФОРМАЦИИ + ЧАСЫ (Win95 стиль) =====
             Panel infoPanel = new Panel();
-            infoPanel.Size = new Size(140, 40);
-            infoPanel.Location = new Point(taskbar.Width - 145, 6);
+            infoPanel.Size = new Size(150, 44);
+            infoPanel.Location = new Point(taskbar.Width - 155, 4);
             infoPanel.BackColor = Color.FromArgb(192, 192, 192);
             infoPanel.BorderStyle = BorderStyle.Fixed3D;
             infoPanel.Cursor = Cursors.Hand;
 
-            // ДАТА (маленькая, над временем)
+            // Дата (маленькая, над временем)
             Label dateLabel = new Label();
             dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
             dateLabel.Font = new Font("Segoe UI", 7);
             dateLabel.ForeColor = Color.Black;
             dateLabel.Location = new Point(2, 0);
-            dateLabel.Size = new Size(134, 14);
+            dateLabel.Size = new Size(144, 14);
             dateLabel.TextAlign = ContentAlignment.MiddleCenter;
             infoPanel.Controls.Add(dateLabel);
 
@@ -99,15 +104,27 @@ namespace FlooxOC
             clockLabel.Font = new Font("Segoe UI", 14, FontStyle.Bold);
             clockLabel.ForeColor = Color.Black;
             clockLabel.Location = new Point(2, 14);
-            clockLabel.Size = new Size(134, 22);
+            clockLabel.Size = new Size(144, 22);
             clockLabel.TextAlign = ContentAlignment.MiddleCenter;
             clockLabel.Name = "clockLabel";
             infoPanel.Controls.Add(clockLabel);
+
+            // Статус демо-режима (под временем)
+            demoStatusLabel = new Label();
+            demoStatusLabel.Text = "";
+            demoStatusLabel.Font = new Font("Segoe UI", 7);
+            demoStatusLabel.ForeColor = Color.FromArgb(200, 50, 50);
+            demoStatusLabel.Location = new Point(2, 34);
+            demoStatusLabel.Size = new Size(144, 12);
+            demoStatusLabel.TextAlign = ContentAlignment.MiddleCenter;
+            demoStatusLabel.Visible = false;
+            infoPanel.Controls.Add(demoStatusLabel);
 
             // Клик по панели информации
             infoPanel.Click += (s, e) => ShowDateTimeInfo();
             dateLabel.Click += (s, e) => ShowDateTimeInfo();
             clockLabel.Click += (s, e) => ShowDateTimeInfo();
+            demoStatusLabel.Click += (s, e) => ShowDateTimeInfo();
 
             taskbar.Controls.Add(infoPanel);
 
@@ -121,6 +138,7 @@ namespace FlooxOC
                     clockLabel.Text = DateTime.Now.ToString("HH:mm");
                     dateLabel.Text = DateTime.Now.ToString("dd.MM.yyyy");
                 }
+                UpdateDemoStatus();
             };
             clockTimer.Start();
 
@@ -130,65 +148,12 @@ namespace FlooxOC
             {
                 if (taskbar != null)
                 {
-                    infoPanel.Location = new Point(taskbar.Width - 145, 6);
-                    taskButtonsPanel.Width = taskbar.Width - 240;
+                    infoPanel.Location = new Point(taskbar.Width - 155, 4);
+                    taskButtonsPanel.Width = taskbar.Width - 260;
                 }
             };
         }
 
-
-        private void ShowDateTimeInfo()
-        {
-            try
-            {
-                string uptime = GetSystemUptime();
-
-                MessageBox.Show(
-                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
-                    $"📆 {GetDayOfWeek()}\n" +
-                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}\n" +
-                    $"\n" +
-                    $"🕐 Время работы: {uptime}\n" +
-                    $"💻 {Environment.MachineName}",
-                    "Дата и время",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }
-            catch
-            {
-                MessageBox.Show(
-                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
-                    $"📆 {GetDayOfWeek()}\n" +
-                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}",
-                    "Дата и время",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }
-        }
-
-
-        private string GetDayOfWeek()
-        {
-            string[] days = { "Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота" };
-            return days[(int)DateTime.Now.DayOfWeek];
-        }
-
-
-        private string GetSystemUptime()
-        {
-            try
-            {
-                TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
-                return $"{uptime.Days}д {uptime.Hours}ч {uptime.Minutes}м";
-            }
-            catch
-            {
-                return "Недоступно";
-            }
-        }
-
-
-        // ===== ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) =====
 
         private void InitializeDesktop()
         {
@@ -228,6 +193,12 @@ namespace FlooxOC
             musicIcon.Location = new Point(20, y);
             musicIcon.Click += (s, e) => OpenMusicPlayer();
             desktopPanel.Controls.Add(musicIcon);
+            y += 85;
+
+            DesktopIcon infoIcon = new DesktopIcon("Информация", CreateIcon("ℹ️"), "system");
+            infoIcon.Location = new Point(20, y);
+            infoIcon.Click += (s, e) => OpenSystemInfo();
+            desktopPanel.Controls.Add(infoIcon);
         }
 
         private void InitializeDesktopContextMenu()
@@ -333,7 +304,7 @@ namespace FlooxOC
             using (Form menu = new Form())
             {
                 menu.Text = "Меню Пуск";
-                menu.Size = new Size(250, 350);
+                menu.Size = new Size(250, 400);
                 menu.StartPosition = FormStartPosition.CenterParent;
                 menu.FormBorderStyle = FormBorderStyle.FixedDialog;
                 menu.MaximizeBox = false;
@@ -400,6 +371,18 @@ namespace FlooxOC
                 };
                 musicBtn.Click += (s, e) => { menu.Close(); OpenMusicPlayer(); };
                 menu.Controls.Add(musicBtn);
+                y += 45;
+
+                Button infoBtn = new Button
+                {
+                    Text = "ℹ️ Информация",
+                    Location = new Point(10, y),
+                    Size = new Size(210, 35),
+                    FlatStyle = FlatStyle.Flat,
+                    BackColor = Color.FromArgb(220, 220, 220)
+                };
+                infoBtn.Click += (s, e) => { menu.Close(); OpenSystemInfo(); };
+                menu.Controls.Add(infoBtn);
                 y += 45;
 
                 Button shutdownBtn = new Button
@@ -593,7 +576,22 @@ namespace FlooxOC
 
             desktopPanel.Controls.Add(bookmarkIcon);
         }
-        
+
+        public void OpenBookmark(WebBookmark bookmark)
+        {
+            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
+            ModernBrowserApp browser = new ModernBrowserApp();
+            window.ContentControl = browser;
+            window.Size = new Size(1000, 700);
+            window.MinimumSize = new Size(600, 400);
+            this.Controls.Add(window);
+            window.BringToFront();
+
+            browser.NavigateTo(bookmark.Url);
+
+            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
+        }
+
         private void RefreshDesktop()
         {
             desktopPanel.Refresh();
@@ -865,7 +863,7 @@ namespace FlooxOC
             taskBtn.FlatAppearance.BorderColor = Color.FromArgb(128, 128, 128);
             taskBtn.Size = new Size(120, 30);
             taskBtn.Margin = new Padding(2);
-            taskBtn.Location = new Point(xPosition, 4);
+            taskBtn.Location = new Point(xPosition, 6);
             taskBtn.Tag = window;
             taskBtn.Cursor = Cursors.Hand;
             taskBtn.TextAlign = ContentAlignment.MiddleCenter;
@@ -890,7 +888,7 @@ namespace FlooxOC
 
             foreach (Control ctrl in taskbar.Controls)
             {
-                if (ctrl is Panel infoPanel && infoPanel.Size.Width == 140)
+                if (ctrl is Panel infoPanel && infoPanel.Size.Width == 150)
                 {
                     infoPanel.BringToFront();
                     break;
@@ -899,7 +897,6 @@ namespace FlooxOC
         }
 
 
-        // Добавь этот метод для обновления позиций кнопок
         private void UpdateTaskButtonsPosition()
         {
             Panel taskButtonsPanel = null;
@@ -925,9 +922,6 @@ namespace FlooxOC
             }
         }
 
-
-
-        // Добавь метод для удаления кнопки
         private void RemoveTaskbarButton(CustomWindow window)
         {
             Panel taskButtonsPanel = null;
@@ -959,7 +953,7 @@ namespace FlooxOC
             UpdateTaskButtonsPosition();
         }
 
-
+        // ====== ПРИЛОЖЕНИЯ ======
 
         private void OpenCalculator()
         {
@@ -972,7 +966,6 @@ namespace FlooxOC
             this.Controls.Add(window);
             window.BringToFront();
 
-            // При закрытии окна удаляем кнопку с панели задач
             window.Closed += (s, e) => RemoveTaskbarButton(window);
             window.Minimized += (s, e) => AddTaskbarButton("Калькулятор", window);
         }
@@ -1033,21 +1026,187 @@ namespace FlooxOC
             window.Minimized += (s, e) => AddTaskbarButton("Музыка", window);
         }
 
-        public void OpenBookmark(WebBookmark bookmark)
+        private void OpenSystemInfo()
         {
-            CustomWindow window = new CustomWindow($"🌐 {bookmark.Name}");
-            ModernBrowserApp browser = new ModernBrowserApp();
-            window.ContentControl = browser;
-            window.Size = new Size(1000, 700);
-            window.MinimumSize = new Size(600, 400);
+            CustomWindow window = new CustomWindow("ℹ️ Информация о системе");
+            SystemInfoApp info = new SystemInfoApp();
+            window.ContentControl = info;
+            window.Size = new Size(480, 550);
+            window.MinimumSize = new Size(450, 500);
             this.Controls.Add(window);
             window.BringToFront();
 
-            browser.NavigateTo(bookmark.Url);
-
             window.Closed += (s, e) => RemoveTaskbarButton(window);
-            window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
+            window.Minimized += (s, e) => AddTaskbarButton("Информация", window);
         }
+
+        // ====== ДЕМО-РЕЖИМ ======
+
+        public void CheckDemoStatus()
+        {
+            if (AccountManager.IsDemoMode)
+            {
+                if (AccountManager.IsDemoExpired)
+                {
+                    // Демо истекло - блокируем
+                    this.Enabled = false;
+                    ShowActivationDialog();
+                }
+                else
+                {
+                    // Показываем статус демо-режима
+                    UpdateDemoStatus();
+
+                    // Запускаем таймер обновления статуса
+                    if (demoStatusTimer == null)
+                    {
+                        demoStatusTimer = new Timer();
+                        demoStatusTimer.Interval = 5000;
+                        demoStatusTimer.Tick += (s, e) => UpdateDemoStatus();
+                        demoStatusTimer.Start();
+                    }
+
+                    // Показываем статус в панели задач
+                    if (demoStatusLabel != null)
+                    {
+                        demoStatusLabel.Visible = true;
+                        demoStatusLabel.Text = "🆓 ДЕМО";
+                    }
+                }
+            }
+        }
+
+        private void UpdateDemoStatus()
+        {
+            if (AccountManager.IsDemoMode && !AccountManager.IsDemoExpired)
+            {
+                string remaining = AccountManager.GetDemoTimeRemaining();
+                this.Text = $"Floox'OC (ДЕМО - {remaining})";
+
+                if (demoStatusLabel != null)
+                {
+                    demoStatusLabel.Visible = true;
+                    demoStatusLabel.Text = $"🆓 ДЕМО: {remaining}";
+                    demoStatusLabel.ForeColor = Color.FromArgb(200, 50, 50); // Красный для заметности
+                }
+            }
+            else if (AccountManager.IsDemoExpired)
+            {
+                if (demoStatusLabel != null)
+                {
+                    demoStatusLabel.Visible = true;
+                    demoStatusLabel.Text = "⛔ ДЕМО ИСТЕКЛО!";
+                    demoStatusLabel.ForeColor = Color.Red;
+                }
+            }
+            else
+            {
+                if (demoStatusLabel != null)
+                {
+                    demoStatusLabel.Visible = false;
+                }
+            }
+        }
+
+        public void ShowActivationDialog()
+        {
+            using (var activationDialog = new ActivationDialog())
+            {
+                activationDialog.ShowDialog();
+                if (activationDialog.IsActivated)
+                {
+                    // Активация успешна
+                    AccountManager.StopDemoTimers();
+                    AccountManager.IsDemoMode = false;
+                    AccountManager.IsDemoExpired = false;
+
+                    // Восстанавливаем работоспособность
+                    this.Enabled = true;
+                    this.Text = "MyOS 95";
+
+                    if (demoStatusLabel != null)
+                    {
+                        demoStatusLabel.Visible = false;
+                    }
+
+                    if (demoStatusTimer != null)
+                    {
+                        demoStatusTimer.Stop();
+                        demoStatusTimer.Dispose();
+                        demoStatusTimer = null;
+                    }
+
+                    MessageBox.Show("✅ Система активирована! Добро пожаловать!",
+                        "Активация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    // Если активация не пройдена и демо истекло
+                    if (AccountManager.IsDemoExpired)
+                    {
+                        MessageBox.Show("❌ Активация не выполнена. Приложение будет закрыто.",
+                            "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        Application.Exit();
+                    }
+                }
+            }
+        }
+
+        // ====== ИНФОРМАЦИЯ ======
+
+        private void ShowDateTimeInfo()
+        {
+            try
+            {
+                string uptime = GetSystemUptime();
+                string demoInfo = AccountManager.IsDemoMode ? $"\n🆓 ДЕМО-РЕЖИМ: {AccountManager.GetDemoTimeRemaining()}" : "";
+                string activationInfo = AccountManager.IsActivated() ? "\n✅ Система активирована" : "";
+
+                MessageBox.Show(
+                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
+                    $"📆 {GetDayOfWeek()}\n" +
+                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}\n" +
+                    $"\n" +
+                    $"🕐 Время работы: {uptime}\n" +
+                    $"💻 {Environment.MachineName}\n" +
+                    $"{demoInfo}" +
+                    $"{activationInfo}",
+                    "Дата и время",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch
+            {
+                MessageBox.Show(
+                    $"📅 {DateTime.Now.ToString("dd.MM.yyyy")}\n" +
+                    $"📆 {GetDayOfWeek()}\n" +
+                    $"⏰ {DateTime.Now.ToString("HH:mm:ss")}",
+                    "Дата и время",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+
+        private string GetDayOfWeek()
+        {
+            string[] days = { "Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота" };
+            return days[(int)DateTime.Now.DayOfWeek];
+        }
+
+        private string GetSystemUptime()
+        {
+            try
+            {
+                TimeSpan uptime = TimeSpan.FromMilliseconds(Environment.TickCount);
+                return $"{uptime.Days}д {uptime.Hours}ч {uptime.Minutes}м";
+            }
+            catch
+            {
+                return "Недоступно";
+            }
+        }
+
+        // ====== НАСТРОЙКИ ======
 
         private void LoadWallpaperColor()
         {
@@ -1135,20 +1294,36 @@ namespace FlooxOC
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
-            if (taskbar != null && clockLabel != null)
+            if (taskbar != null)
             {
-                // Часы обновляются автоматически через таймер
+                foreach (Control ctrl in taskbar.Controls)
+                {
+                    if (ctrl is Panel infoPanel && infoPanel.Size.Width == 190)
+                    {
+                        infoPanel.Location = new Point(taskbar.Width - 195, 2);
+                        break;
+                    }
+                }
             }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
+
             if (clockTimer != null)
             {
                 clockTimer.Stop();
                 clockTimer.Dispose();
             }
+
+            if (demoStatusTimer != null)
+            {
+                demoStatusTimer.Stop();
+                demoStatusTimer.Dispose();
+            }
+
+            AccountManager.StopDemoTimers();
         }
     }
 }

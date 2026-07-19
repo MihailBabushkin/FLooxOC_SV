@@ -1,5 +1,4 @@
-﻿using FlooxOC;
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -19,8 +18,8 @@ namespace FlooxOC
 
         public ActivationDialog()
         {
-            this.Text = "Активация FlooxOC. Home Version";
-            this.Size = new Size(450, 250);
+            this.Text = "Активация MyOS 95";
+            this.Size = new Size(450, 280);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -34,7 +33,6 @@ namespace FlooxOC
         {
             int y = 20;
 
-            // Заголовок
             Label title = new Label();
             title.Text = "🔑 Активация системы";
             title.Font = new Font("Segoe UI", 16, FontStyle.Bold);
@@ -43,17 +41,16 @@ namespace FlooxOC
             this.Controls.Add(title);
             y += 45;
 
-            // Информация
             lblInfo = new Label();
-            lblInfo.Text = "Введите код активации, полученный при покупке.\n" +
-                          "Для тестирования используйте: DEMO-2026";
+            lblInfo.Text = "Введите код активации из Google Sheets.\n" +
+                          "Код будет проверен и помечен как использованный.\n" +
+                          "Для теста: DEMO-2024, TEST-1234, FREE-2024";
             lblInfo.Font = new Font("Segoe UI", 9);
             lblInfo.Location = new Point(20, y);
-            lblInfo.Size = new Size(400, 40);
+            lblInfo.Size = new Size(400, 45);
             this.Controls.Add(lblInfo);
-            y += 50;
+            y += 55;
 
-            // Поле ввода кода
             Label lblCode = new Label();
             lblCode.Text = "Код активации:";
             lblCode.Font = new Font("Segoe UI", 10, FontStyle.Bold);
@@ -68,12 +65,11 @@ namespace FlooxOC
             txtCode.KeyPress += (s, e) =>
             {
                 if (e.KeyChar == (char)Keys.Enter)
-                    PerformActivation();
+                    ActivateAsync();
             };
             this.Controls.Add(txtCode);
             y += 40;
 
-            // Статус
             lblStatus = new Label();
             lblStatus.Text = "";
             lblStatus.Font = new Font("Segoe UI", 9);
@@ -83,7 +79,6 @@ namespace FlooxOC
             this.Controls.Add(lblStatus);
             y += 35;
 
-            // Кнопки
             btnActivate = new Button();
             btnActivate.Text = "✅ Активировать";
             btnActivate.Size = new Size(130, 35);
@@ -109,35 +104,6 @@ namespace FlooxOC
             this.Controls.Add(btnSkip);
         }
 
-        // Переименовано с Activate на PerformActivation
-        private void PerformActivation()
-        {
-            string code = txtCode.Text.Trim();
-            if (string.IsNullOrEmpty(code))
-            {
-                lblStatus.Text = "Введите код активации!";
-                lblStatus.ForeColor = Color.DarkRed;
-                return;
-            }
-
-            if (AccountManager.ValidateCodeLocally(code))
-            {
-                isActivated = true;
-                lblStatus.Text = "✅ Активация успешна!";
-                lblStatus.ForeColor = Color.DarkGreen;
-                btnActivate.Enabled = false;
-                Task.Delay(500).ContinueWith(_ =>
-                {
-                    this.Invoke((Action)(() => this.Close()));
-                });
-            }
-            else
-            {
-                lblStatus.Text = "❌ Неверный код активации!";
-                lblStatus.ForeColor = Color.DarkRed;
-            }
-        }
-
         private async Task ActivateAsync()
         {
             string code = txtCode.Text.Trim();
@@ -150,26 +116,36 @@ namespace FlooxOC
 
             btnActivate.Enabled = false;
             btnActivate.Text = "⏳ Проверка...";
-            lblStatus.Text = "Проверка кода...";
+            lblStatus.Text = "⏳ Проверка кода в Google Sheets...";
             lblStatus.ForeColor = Color.DarkBlue;
 
-            bool result = await AccountManager.ActivateCode(code);
-
-            btnActivate.Enabled = true;
-            btnActivate.Text = "✅ Активировать";
-
-            if (result)
+            try
             {
-                isActivated = true;
-                lblStatus.Text = "✅ Активация успешна!";
-                lblStatus.ForeColor = Color.DarkGreen;
-                await Task.Delay(500);
-                this.Close();
+                bool isValid = await GoogleSheetsManager.ValidateCode(code);
+
+                if (isValid)
+                {
+                    isActivated = true;
+                    lblStatus.Text = "✅ Активация успешна!";
+                    lblStatus.ForeColor = Color.DarkGreen;
+                    await Task.Delay(500);
+                    this.Close();
+                }
+                else
+                {
+                    lblStatus.Text = "❌ Неверный или уже использованный код!";
+                    lblStatus.ForeColor = Color.DarkRed;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                lblStatus.Text = "❌ Неверный код активации!";
+                lblStatus.Text = $"❌ Ошибка: {ex.Message}";
                 lblStatus.ForeColor = Color.DarkRed;
+            }
+            finally
+            {
+                btnActivate.Enabled = true;
+                btnActivate.Text = "✅ Активировать";
             }
         }
     }
