@@ -40,8 +40,8 @@ namespace FlooxOC
                     value.Location = new Point(0, 0);
                     contentPanel.Controls.Add(value);
 
+                    // Применяем цвета к содержимому
                     value.BackColor = DefaultBackground;
-
                     Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
                     SetControlForeColor(value, textColor);
                 }
@@ -73,7 +73,7 @@ namespace FlooxOC
             titleBar.MouseDown += OnWindowMouseDown;
         }
 
-        // ====== СОБЫТИЯ ДЛЯ ПОДНЯТИЯ ОКНА ======
+        // ===== СОБЫТИЯ ДЛЯ ПОДНЯТИЯ ОКНА =====
         private void OnWindowMouseDown(object sender, MouseEventArgs e)
         {
             BringToFront();
@@ -84,7 +84,7 @@ namespace FlooxOC
             BringToFront();
         }
 
-        // ====== ПЕРЕТАСКИВАНИЕ ======
+        // ===== ПЕРЕТАСКИВАНИЕ =====
         private void TitleBar_MouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left && !isMaximized)
@@ -115,7 +115,7 @@ namespace FlooxOC
             }
         }
 
-        // ====== РЕСАЙЗ ======
+        // ===== РЕСАЙЗ =====
         private bool isResizing = false;
         private Point resizeStart;
         private Size resizeStartSize;
@@ -226,7 +226,7 @@ namespace FlooxOC
             this.Cursor = Cursors.Default;
         }
 
-        // ====== WNDPROC ДЛЯ РЕСАЙЗА ======
+        // ===== WNDPROC ДЛЯ РЕСАЙЗА =====
         protected override void WndProc(ref Message m)
         {
             const int WM_NCHITTEST = 0x0084;
@@ -294,7 +294,7 @@ namespace FlooxOC
             base.WndProc(ref m);
         }
 
-        // ====== ИНИЦИАЛИЗАЦИЯ ======
+        // ===== ИНИЦИАЛИЗАЦИЯ =====
         private void InitializeTitleBar(string title)
         {
             titleBar = new Panel
@@ -432,7 +432,7 @@ namespace FlooxOC
             }
         }
 
-        // ====== УПРАВЛЕНИЕ ОКНОМ ======
+        // ===== УПРАВЛЕНИЕ ОКНОМ =====
         private void CloseWindow()
         {
             Closed?.Invoke(this, EventArgs.Empty);
@@ -473,7 +473,7 @@ namespace FlooxOC
             Minimized?.Invoke(this, EventArgs.Empty);
         }
 
-        // ====== ПУБЛИЧНЫЙ МЕТОД ДЛЯ ВОССТАНОВЛЕНИЯ ======
+        // ===== ПУБЛИЧНЫЙ МЕТОД ДЛЯ ВОССТАНОВЛЕНИЯ =====
         public void RestoreWindow()
         {
             this.Visible = true;
@@ -482,7 +482,7 @@ namespace FlooxOC
                 ToggleMaximize();
         }
 
-        // ====== РАБОТА С ЦВЕТАМИ ======
+        // ===== РАБОТА С ЦВЕТАМИ =====
         private void SetControlForeColor(Control control, Color color)
         {
             foreach (Control child in control.Controls)
@@ -528,6 +528,7 @@ namespace FlooxOC
                     if (ctrl is CustomWindow window)
                     {
                         window.UpdateColors();
+                        window.Refresh();
                     }
                 }
             }
@@ -540,14 +541,15 @@ namespace FlooxOC
             if (contentPanel != null)
             {
                 contentPanel.BackColor = DefaultBackground;
-
-                // ===== ПРИМЕНЯЕМ КОНТРАСТНЫЕ ЦВЕТА КО ВСЕМ КОНТРОЛАМ =====
-                ColorHelper.ApplyContrastToControls(contentPanel);
+                Color textColor = ColorHelper.GetContrastTextColor(DefaultBackground);
+                SetControlForeColor(contentPanel, textColor);
+                contentPanel.Refresh();
             }
 
             // Обновляем заголовок
             Color textColorTitle = ColorHelper.GetContrastTextColor(DefaultBackground);
             titleLabel.ForeColor = textColorTitle;
+            titleLabel.Refresh();
 
             this.Refresh();
         }

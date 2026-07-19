@@ -27,7 +27,6 @@ namespace FlooxOC
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
 
-            // ===== РЕГИСТРИРУЕМ ГЛАВНУЮ ФОРМУ В AppManager =====
             AppManager.SetMainForm(this);
 
             LoadWallpaperColor();

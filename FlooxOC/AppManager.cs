@@ -17,7 +17,7 @@ namespace FlooxOC
         private static string AppsFile = Path.Combine(DataPath, "apps.json");
         private static string IconsFolder = Path.Combine(DataPath, "Icons");
         private static List<AppInfo> apps = new List<AppInfo>();
-        private static Form1 mainForm; // Ссылка на главную форму
+        private static Form1 mainForm;
 
         static AppManager()
         {
@@ -26,7 +26,6 @@ namespace FlooxOC
             LoadApps();
         }
 
-        // ===== УСТАНОВКА ГЛАВНОЙ ФОРМЫ =====
         public static void SetMainForm(Form1 form)
         {
             mainForm = form;
@@ -55,17 +54,13 @@ namespace FlooxOC
                         icon.Dispose();
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка извлечения иконки: {ex.Message}");
-                }
+                catch { }
             }
 
             if (string.IsNullOrEmpty(app.IconPath))
             {
                 string iconName = $"{app.Id}.png";
                 string destPath = Path.Combine(IconsFolder, iconName);
-
                 Bitmap defaultIcon = new Bitmap(40, 40);
                 using (Graphics g = Graphics.FromImage(defaultIcon))
                 {
@@ -96,10 +91,7 @@ namespace FlooxOC
                         File.Delete(app.IconPath);
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Ошибка удаления иконки: {ex.Message}");
-                }
+                catch { }
 
                 apps.Remove(app);
                 SaveApps();
@@ -125,26 +117,28 @@ namespace FlooxOC
 
             try
             {
-                // Создаём внутреннее окно для приложения
+                // Создаём внутреннее окно
                 CustomWindow window = new CustomWindow(app.Name);
                 window.Size = new Size(800, 600);
                 window.MinimumSize = new Size(400, 300);
+                window.BackColor = Color.White;
 
-                // Создаём панель для встраивания приложения
+                // Создаём панель для встраивания
                 Panel hostPanel = new Panel
                 {
                     Dock = DockStyle.Fill,
-                    BackColor = CustomWindow.DefaultBackground
+                    BackColor = Color.White
                 };
 
-                // Запускаем процесс и встраиваем его в панель
+                // Запускаем процесс
                 System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = app.ExecutablePath,
                     Arguments = app.Arguments,
                     WorkingDirectory = string.IsNullOrEmpty(app.WorkingDirectory) ?
                         Path.GetDirectoryName(app.ExecutablePath) : app.WorkingDirectory,
-                    UseShellExecute = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = false,
                     WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal
                 };
 
@@ -152,53 +146,89 @@ namespace FlooxOC
 
                 if (process != null)
                 {
-                    // Даём процессу время на запуск
+                    // Ждём появления окна
                     System.Threading.Thread.Sleep(500);
 
-                    // Встраиваем окно процесса в наш hostPanel
-                    IntPtr handle = process.MainWindowHandle;
+                    // Пытаемся получить handle
+                    IntPtr handle = IntPtr.Zero;
+                    int attempts = 0;
+                    while (handle == IntPtr.Zero && attempts < 20)
+                    {
+                        try
+                        {
+                            process.Refresh();
+                            handle = process.MainWindowHandle;
+                        }
+                        catch { }
+
+                        if (handle == IntPtr.Zero)
+                        {
+                            System.Threading.Thread.Sleep(200);
+                            attempts++;
+                        }
+                    }
+
                     if (handle != IntPtr.Zero)
                     {
-                        // Устанавливаем родительское окно
+                        // Встраиваем окно
                         SetParent(handle, hostPanel.Handle);
 
-                        // Разворачиваем на весь hostPanel
+                        // Убираем границы и разворачиваем
+                        SetWindowLong(handle, GWL_STYLE, GetWindowLong(handle, GWL_STYLE) & ~WS_CAPTION & ~WS_THICKFRAME);
                         ShowWindow(handle, 3); // SW_MAXIMIZE
+
+                        window.ContentControl = hostPanel;
+                        mainForm.Controls.Add(window);
+                        window.BringToFront();
+
+                        // Обновляем цвета
+                        ColorHelper.ApplyContrastToControls(window);
+
+                        // Обработка закрытия
+                        window.Closed += (s, e) =>
+                        {
+                            try
+                            {
+                                if (!process.HasExited)
+                                {
+                                    process.Kill();
+                                    process.Dispose();
+                                }
+                            }
+                            catch { }
+                        };
+
+                        window.Minimized += (s, e) => mainForm.AddTaskbarButton(app.Name, window);
+
+                        return true;
                     }
                     else
                     {
-                        // Если не удалось получить handle, ждём ещё
-                        System.Threading.Thread.Sleep(1000);
-                        handle = process.MainWindowHandle;
-                        if (handle != IntPtr.Zero)
+                        // Не удалось получить handle - запускаем отдельно
+                        MessageBox.Show("Не удалось встроить приложение. Оно будет открыто в отдельном окне.",
+                            "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        window.Dispose();
+                        process.Kill();
+
+                        // Запускаем отдельно
+                        System.Diagnostics.ProcessStartInfo fallbackInfo = new System.Diagnostics.ProcessStartInfo
                         {
-                            SetParent(handle, hostPanel.Handle);
-                            ShowWindow(handle, 3);
-                        }
+                            FileName = app.ExecutablePath,
+                            Arguments = app.Arguments,
+                            WorkingDirectory = string.IsNullOrEmpty(app.WorkingDirectory) ?
+                                Path.GetDirectoryName(app.ExecutablePath) : app.WorkingDirectory,
+                            UseShellExecute = true
+                        };
+                        System.Diagnostics.Process.Start(fallbackInfo);
+                        return true;
                     }
                 }
-
-                window.ContentControl = hostPanel;
-                mainForm.Controls.Add(window);
-                window.BringToFront();
-
-                // Обработка закрытия окна
-                window.Closed += (s, e) =>
+                else
                 {
-                    try
-                    {
-                        if (process != null && !process.HasExited)
-                        {
-                            process.Kill();
-                            process.Dispose();
-                        }
-                    }
-                    catch { }
-                };
-
-                window.Minimized += (s, e) => mainForm.AddTaskbarButton(app.Name, window);
-
-                return true;
+                    window.Dispose();
+                    return false;
+                }
             }
             catch (Exception ex)
             {
@@ -208,12 +238,22 @@ namespace FlooxOC
             }
         }
 
-        // ===== ИМПОРТЫ WINAPI ДЛЯ ВСТРАИВАНИЯ ОКОН =====
+        // ===== WINAPI ИМПОРТЫ ДЛЯ ВСТРАИВАНИЯ =====
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        private const int GWL_STYLE = -16;
+        private const int WS_CAPTION = 0x00C00000;
+        private const int WS_THICKFRAME = 0x00040000;
 
         public static Image LoadAppIcon(AppInfo app)
         {
@@ -299,10 +339,7 @@ namespace FlooxOC
                 string json = JsonSerializer.Serialize(apps, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(AppsFile, json);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка сохранения: {ex.Message}");
-            }
+            catch { }
         }
 
         private static void LoadApps()
