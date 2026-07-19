@@ -24,6 +24,9 @@ namespace FlooxOC
             InitializeDisplay();
             InitializeHistory();
             InitializeButtons();
+
+            // Применяем контрастные цвета
+            ColorHelper.ApplyContrastToControls(this);
         }
 
         private void InitializeDisplay()
@@ -38,6 +41,8 @@ namespace FlooxOC
                 ReadOnly = true,
                 Text = "0"
             };
+            // Применяем контрастный цвет текста
+            display.ForeColor = ColorHelper.GetContrastTextColor(display.BackColor);
             this.Controls.Add(display);
         }
 
@@ -48,7 +53,7 @@ namespace FlooxOC
                 Location = new Point(5, 55),
                 Size = new Size(250, 20),
                 Font = new Font("Segoe UI", 9),
-                ForeColor = Color.DimGray,
+                ForeColor = ColorHelper.GetContrastTextColor(this.BackColor),
                 Text = "",
                 TextAlign = ContentAlignment.MiddleRight
             };
@@ -58,12 +63,12 @@ namespace FlooxOC
         private void InitializeButtons()
         {
             string[,] buttons = {
-        { "C", "⌫", "%", "÷" },
-        { "7", "8", "9", "×" },
-        { "4", "5", "6", "-" },
-        { "1", "2", "3", "+" },
-        { "±", "0", ",", "=" }
-    };
+                { "C", "⌫", "%", "÷" },
+                { "7", "8", "9", "×" },
+                { "4", "5", "6", "-" },
+                { "1", "2", "3", "+" },
+                { "±", "0", ",", "=" }
+            };
 
             int x = 5, y = 80;
             for (int row = 0; row < buttons.GetLength(0); row++)
@@ -73,13 +78,15 @@ namespace FlooxOC
                     Button btn = new Button
                     {
                         Text = buttons[row, col],
-                        Size = new Size(70, 55),  // ← Увеличил размер кнопок
+                        Size = new Size(70, 55),
                         Location = new Point(x + col * 75, y + row * 60),
-                        Font = new Font("Segoe UI", 16, FontStyle.Bold),  // ← Увеличил шрифт
+                        Font = new Font("Segoe UI", 16, FontStyle.Bold),
                         FlatStyle = FlatStyle.Flat,
                         BackColor = GetButtonColor(buttons[row, col]),
                         Cursor = Cursors.Hand
                     };
+                    // Применяем контрастный цвет текста для кнопки
+                    btn.ForeColor = ColorHelper.GetContrastTextColor(btn.BackColor);
                     btn.FlatAppearance.BorderSize = 1;
                     btn.Click += Button_Click;
                     this.Controls.Add(btn);
