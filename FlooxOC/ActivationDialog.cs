@@ -13,13 +13,15 @@ namespace FlooxOC
         private Label lblStatus;
         private Label lblInfo;
         private bool isActivated = false;
+        private string activationCode = "";
 
         public bool IsActivated => isActivated;
+        public string ActivationCode => activationCode;
 
         public ActivationDialog()
         {
             this.Text = "Активация Floox OC. Home Version";
-            this.Size = new Size(450, 320);
+            this.Size = new Size(450, 300);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -43,9 +45,9 @@ namespace FlooxOC
             y += 45;
 
             lblInfo = new Label();
-            lblInfo.Text = "Введите код активации из базы данных.\n" +
-                          "Код будет проверен и помечен как использованный.\n" +
-                          "Для теста: DEMO-2024, TEST-1234, FREE-2024";
+            lblInfo.Text = "Введите код активации для получения полной версии.\n" +
+                          "Код можно приобрести у разработчика.\n" +
+                          "Или нажмите 'Пропустить' для использования ДЕМО-режима.";
             lblInfo.Font = new Font("Segoe UI", 9);
             lblInfo.Location = new Point(20, y);
             lblInfo.Size = new Size(400, 45);
@@ -131,33 +133,41 @@ namespace FlooxOC
 
             btnActivate.Enabled = false;
             btnActivate.Text = "⏳ Проверка...";
-            lblStatus.Text = "⏳ Проверка кода в базе данных...";
+            lblStatus.Text = "⏳ Проверка кода...";
             lblStatus.ForeColor = Color.DarkBlue;
 
             try
             {
+                // Проверяем код на сервере
                 var result = await MySQLManager.ValidateCode(code);
 
                 if (result.Success)
                 {
-                    isActivated = true;
-                    lblStatus.Text = "✅ Активация успешна!";
-                    lblStatus.ForeColor = Color.DarkGreen;
+                    // Активируем код (удаляем из БД)
+                    var activateResult = await MySQLManager.ActivateCode(code, Environment.UserName);
 
-                    AccountManager.SaveActivationCode(code);
+                    if (activateResult)
+                    {
+                        isActivated = true;
+                        activationCode = code;
+                        lblStatus.Text = "✅ Активация успешна!";
+                        lblStatus.ForeColor = Color.DarkGreen;
 
-                    await Task.Delay(500);
-                    this.Close();
+                        AccountManager.SaveActivationCode(code);
+
+                        await Task.Delay(500);
+                        this.Close();
+                    }
+                    else
+                    {
+                        lblStatus.Text = "❌ Не удалось активировать код!";
+                        lblStatus.ForeColor = Color.DarkRed;
+                    }
                 }
                 else
                 {
                     lblStatus.Text = result.Message;
                     lblStatus.ForeColor = Color.DarkRed;
-
-                    if (result.CodeInfo != null && result.CodeInfo.IsUsed)
-                    {
-                        lblStatus.Text += $"\n👤 Использован: {result.CodeInfo.UsedBy}";
-                    }
                 }
             }
             catch (Exception ex)
@@ -175,22 +185,21 @@ namespace FlooxOC
         private async Task CheckConnection()
         {
             btnActivate.Enabled = false;
-            lblStatus.Text = "⏳ Проверка связи с MySQL...";
+            lblStatus.Text = "⏳ Проверка связи с сервером...";
             lblStatus.ForeColor = Color.DarkBlue;
 
             try
             {
-                var result = await MySQLManager.CheckConnection();
-
-                if (result.Success)
+                bool connected = await MySQLManager.TestConnection();
+                if (connected)
                 {
-                    lblStatus.Text = $"✅ {result.Message}\n" +
-                                     $"📊 Всего: {result.TotalCodes}, Свободно: {result.FreeCodes}, Использовано: {result.UsedCodes}";
+                    var stats = await MySQLManager.GetStatistics();
+                    lblStatus.Text = $"✅ Связь с сервером установлена!\n{stats}";
                     lblStatus.ForeColor = Color.DarkGreen;
                 }
                 else
                 {
-                    lblStatus.Text = $"❌ {result.Message}";
+                    lblStatus.Text = "❌ Не удалось подключиться к серверу!";
                     lblStatus.ForeColor = Color.DarkRed;
                 }
             }

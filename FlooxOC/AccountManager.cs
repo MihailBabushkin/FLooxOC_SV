@@ -14,9 +14,9 @@ namespace FlooxOC
     public class AccountManager
     {
         private static string DataPath = Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-    "Floox OC. Home Version", "Accounts"
-);
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Floox OC. Home Version", "Accounts"
+        );
         private static string AccountsFile = Path.Combine(DataPath, "accounts.json");
         private static string SettingsFile = Path.Combine(DataPath, "settings.json");
 
@@ -152,13 +152,7 @@ namespace FlooxOC
             }
         }
 
-        public static void SaveActivationCode(string code)
-        {
-            settings.ActivationCode = code;
-            settings.IsDemoMode = false;
-            settings.IsDemoExpired = false;
-            SaveSettings();
-        }
+        // ====== АКТИВАЦИЯ ======
 
         public static async Task<bool> ActivateCode(string code)
         {
@@ -192,38 +186,44 @@ namespace FlooxOC
 
                         return true;
                     }
-                    else
-                    {
-                        string message = responseData.ContainsKey("message") ? responseData["message"].ToString() : "Неизвестная ошибка";
-                        MessageBox.Show($"❌ {message}", "Ошибка активации",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return false;
-                    }
-                }
-                else
-                {
-                    MessageBox.Show($"❌ Ошибка соединения с сервером! (Код: {response.StatusCode})", "Ошибка",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return false;
-                }
-            }
-            catch
-            {
-                if (ValidateCodeLocally(code))
-                {
-                    settings.ActivationCode = code;
-                    settings.FirstRun = false;
-                    settings.IsDemoMode = false;
-                    settings.IsDemoExpired = false;
-                    settings.DemoStartTime = DateTime.MinValue;
-                    SaveSettings();
-
-                    StopDemoTimers();
-
-                    return true;
                 }
                 return false;
             }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ====== СОХРАНЕНИЕ КОДА АКТИВАЦИИ (ЛОКАЛЬНО) ======
+        public static void SaveActivationCode(string code)
+        {
+            settings.ActivationCode = code;
+            settings.IsDemoMode = false;
+            settings.IsDemoExpired = false;
+            settings.FirstRun = false;
+            SaveSettings();
+        }
+
+        // ====== ПРОВЕРКА, АКТИВИРОВАНА ЛИ СИСТЕМА ======
+        public static bool IsSystemActivated()
+        {
+            return !string.IsNullOrEmpty(settings.ActivationCode);
+        }
+
+        // ====== ПРОВЕРКА, НУЖНА ЛИ АКТИВАЦИЯ ======
+        public static bool NeedsActivation()
+        {
+            // Если система уже активирована - не нужно
+            if (IsSystemActivated())
+                return false;
+
+            // Если демо-режим активен и не истёк - не нужно
+            if (settings.IsDemoMode && !settings.IsDemoExpired)
+                return false;
+
+            // В остальных случаях - нужно
+            return true;
         }
 
         public static bool ValidateCodeLocally(string code)
@@ -236,6 +236,8 @@ namespace FlooxOC
             }
             return false;
         }
+
+        // ====== ПОЛЬЗОВАТЕЛИ ======
 
         public static bool RegisterUser(string login, string password, string userName = "")
         {
@@ -269,7 +271,7 @@ namespace FlooxOC
                 Login = login,
                 PasswordHash = settings.RequirePassword ? HashPassword(password) : "",
                 ActivationCode = settings.ActivationCode,
-                IsActivated = !settings.IsDemoMode,
+                IsActivated = IsSystemActivated(),
                 CreatedDate = DateTime.Now,
                 LastLogin = DateTime.Now,
                 UserName = string.IsNullOrEmpty(userName) ? login : userName
@@ -338,7 +340,7 @@ namespace FlooxOC
 
         public static bool IsActivated()
         {
-            return !string.IsNullOrEmpty(settings.ActivationCode) && !settings.IsDemoMode;
+            return IsSystemActivated();
         }
 
         public static string GetLastUser()
@@ -371,6 +373,7 @@ namespace FlooxOC
         }
 
         // ====== ДЕМО-РЕЖИМ ======
+
         public static void StartDemoMode(Form1 form)
         {
             mainForm = form;
@@ -379,7 +382,6 @@ namespace FlooxOC
             settings.IsDemoExpired = false;
             SaveSettings();
 
-            // Таймер для предупреждения за 5 минут до окончания
             int warningMinutes = settings.DemoMinutesLimit - 5;
             if (warningMinutes > 0)
             {
@@ -393,7 +395,6 @@ namespace FlooxOC
                 demoWarningTimer.Start();
             }
 
-            // Таймер для завершения демо
             demoExpireTimer = new Timer();
             demoExpireTimer.Interval = settings.DemoMinutesLimit * 60 * 1000;
             demoExpireTimer.Tick += (s, e) =>
@@ -403,7 +404,6 @@ namespace FlooxOC
             };
             demoExpireTimer.Start();
 
-            // Показываем информацию о демо-режиме
             ShowDemoInfo();
         }
 
@@ -439,7 +439,6 @@ namespace FlooxOC
 
             if (result == DialogResult.Yes)
             {
-                // Открываем окно активации
                 mainForm.ShowActivationDialog();
             }
         }
@@ -451,7 +450,6 @@ namespace FlooxOC
             settings.IsDemoExpired = true;
             SaveSettings();
 
-            // Блокируем все окна
             mainForm.BeginInvoke((Action)(() =>
             {
                 var result = MessageBox.Show(
@@ -467,12 +465,10 @@ namespace FlooxOC
 
                 if (result == DialogResult.OK)
                 {
-                    // Показываем окно активации
                     mainForm.ShowActivationDialog();
                 }
                 else
                 {
-                    // Если пользователь закрыл окно, завершаем приложение
                     Application.Exit();
                 }
             }));
@@ -508,6 +504,8 @@ namespace FlooxOC
 
             return $"{(int)remaining.TotalMinutes} мин {(int)remaining.Seconds} сек";
         }
+
+        // ====== СОХРАНЕНИЕ И ЗАГРУЗКА ======
 
         private static List<AccountData> LoadAccounts()
         {
