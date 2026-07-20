@@ -38,6 +38,25 @@ namespace FlooxOC
             InitializeComponents();
             ApplyColors();
             StartSilentUpdateCheck();
+
+            this.Resize += (s, e) => ResizeComponents();
+        }
+
+        // ===== МАСШТАБИРОВАНИЕ КОМПОНЕНТОВ =====
+        private void ResizeComponents()
+        {
+            if (richOutput == null || textCommand == null || labelCommandStatus == null) return;
+
+            int width = this.ClientSize.Width - 40;
+            textCommand.Width = Math.Max(200, width - 170);
+            labelCommandStatus.Width = Math.Max(200, width - 180);
+
+            int height = this.ClientSize.Height - 400;
+            richOutput.Width = Math.Max(200, width);
+            richOutput.Height = Math.Max(50, height);
+
+            ColorHelper.ApplyContrastToControls(this);
+            this.Refresh();
         }
 
         // ===== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ =====
@@ -102,7 +121,6 @@ namespace FlooxOC
         private void ApplyColors()
         {
             ColorHelper.ApplyContrastToControls(this);
-            this.Resize += (s, e) => ColorHelper.ApplyContrastToControls(this);
         }
 
         // ===== ТИХАЯ ПРОВЕРКА ОБНОВЛЕНИЙ =====
@@ -119,72 +137,59 @@ namespace FlooxOC
         {
             int y = 10;
 
-            // ---- ЗАГОЛОВОК ----
             Label titleLabel = CreateLabel("ℹ️ Информация о системе", new Font("Segoe UI", 18, FontStyle.Bold), new Point(10, y), new Size(350, 35));
             this.Controls.Add(titleLabel);
             y += 50;
 
-            // ---- РАЗДЕЛИТЕЛЬ ----
             this.Controls.Add(CreateSeparator(new Point(10, y), new Size(400, 2)));
             y += 15;
 
-            // ---- ОСНОВНОЕ ----
             Label mainTitle = CreateLabel("🖥️ Основное", new Font("Segoe UI", 12, FontStyle.Bold), new Point(10, y), new Size(200, 25));
             this.Controls.Add(mainTitle);
             y += 30;
 
-            // Ядро
             this.Controls.Add(CreateLabel("Ядро:", new Font("Segoe UI", 10), new Point(20, y), new Size(120, 25)));
             labelKernel = CreateLabel("Windows 10 (NT 10.0)", new Font("Segoe UI", 10, FontStyle.Bold), new Point(140, y), new Size(250, 25));
             labelKernel.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             this.Controls.Add(labelKernel);
             y += 30;
 
-            // Минимальные требования
             this.Controls.Add(CreateLabel("Минимальные требования:", new Font("Segoe UI", 10), new Point(20, y), new Size(140, 25)));
             labelMinRequirements = CreateLabel("CPU: 1 ГГц, RAM: 1 ГБ, HDD: 500 МБ", new Font("Segoe UI", 10), new Point(160, y), new Size(250, 25));
             this.Controls.Add(labelMinRequirements);
             y += 40;
 
-            // ---- РАЗДЕЛИТЕЛЬ ----
             this.Controls.Add(CreateSeparator(new Point(10, y), new Size(400, 2)));
             y += 15;
 
-            // ---- ВЕРСИЯ ----
             Label versionTitle = CreateLabel("📌 Версия", new Font("Segoe UI", 12, FontStyle.Bold), new Point(10, y), new Size(200, 25));
             this.Controls.Add(versionTitle);
             y += 30;
 
-            // ОС
             this.Controls.Add(CreateLabel("ОС:", new Font("Segoe UI", 10), new Point(20, y), new Size(120, 25)));
             labelOS = CreateLabel("Floox'OC", new Font("Segoe UI", 10, FontStyle.Bold), new Point(140, y), new Size(250, 25));
             labelOS.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             this.Controls.Add(labelOS);
             y += 30;
 
-            // Набор
             this.Controls.Add(CreateLabel("Набор:", new Font("Segoe UI", 10), new Point(20, y), new Size(120, 25)));
             labelEdition = CreateLabel("Home Version", new Font("Segoe UI", 10, FontStyle.Bold), new Point(140, y), new Size(250, 25));
             this.Controls.Add(labelEdition);
             y += 30;
 
-            // Версия сборки
             this.Controls.Add(CreateLabel("Версия сборки:", new Font("Segoe UI", 10), new Point(20, y), new Size(120, 25)));
             labelBuild = CreateLabel(currentVersion, new Font("Segoe UI", 10, FontStyle.Bold), new Point(140, y), new Size(250, 25));
             labelBuild.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             this.Controls.Add(labelBuild);
             y += 40;
 
-            // ---- РАЗДЕЛИТЕЛЬ ----
             this.Controls.Add(CreateSeparator(new Point(10, y), new Size(400, 2)));
             y += 15;
 
-            // ---- СТАТУС ОБНОВЛЕНИЙ ----
             labelVersionStatus = CreateLabel("🔍 Проверка обновлений...", new Font("Segoe UI", 10), new Point(20, y), new Size(380, 25));
             this.Controls.Add(labelVersionStatus);
             y += 35;
 
-            // Кнопка проверки обновлений
             buttonCheckUpdates = CreateButton("🔄 Проверить обновления", new Point(20, y), new Size(200, 40));
             buttonCheckUpdates.BackColor = Color.FromArgb(0, 120, 215);
             buttonCheckUpdates.ForeColor = ColorHelper.GetContrastTextColor(buttonCheckUpdates.BackColor);
@@ -192,7 +197,6 @@ namespace FlooxOC
             this.Controls.Add(buttonCheckUpdates);
             y += 55;
 
-            // Кнопка обновления
             Button updateButton = CreateButton("⬇️ Обновить систему", new Point(20, y), new Size(200, 40));
             updateButton.BackColor = Color.FromArgb(0, 150, 80);
             updateButton.ForeColor = ColorHelper.GetContrastTextColor(updateButton.BackColor);
@@ -200,25 +204,23 @@ namespace FlooxOC
             this.Controls.Add(updateButton);
             y += 60;
 
-            // ---- РАЗДЕЛИТЕЛЬ ----
             this.Controls.Add(CreateSeparator(new Point(10, y), new Size(400, 2)));
             y += 15;
 
-            // ---- КОМАНДНАЯ СТРОКА ----
             Label commandTitle = CreateLabel("⌨️ Командная строка", new Font("Segoe UI", 12, FontStyle.Bold), new Point(10, y), new Size(200, 25));
             this.Controls.Add(commandTitle);
             y += 30;
 
-            // Поле ввода команды
             this.Controls.Add(CreateLabel("Команда:", new Font("Segoe UI", 10), new Point(20, y), new Size(80, 25)));
 
             textCommand = new TextBox
             {
                 Location = new Point(100, y),
-                Size = new Size(250, 25),
+                Size = new Size(this.ClientSize.Width - 190, 25),
                 Font = new Font("Consolas", 10),
                 BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.Lime
+                ForeColor = Color.Lime,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             textCommand.KeyPress += (s, e) =>
             {
@@ -228,36 +230,34 @@ namespace FlooxOC
             this.Controls.Add(textCommand);
             y += 35;
 
-            // Кнопка выполнения
             buttonExecute = CreateButton("▶️ Выполнить", new Point(20, y), new Size(120, 30));
             buttonExecute.BackColor = Color.FromArgb(0, 120, 215);
             buttonExecute.ForeColor = ColorHelper.GetContrastTextColor(buttonExecute.BackColor);
             buttonExecute.Click += (s, e) => ExecuteCommand();
             this.Controls.Add(buttonExecute);
 
-            // Статус команды
-            labelCommandStatus = CreateLabel("Готов к выполнению команд", new Font("Segoe UI", 9), new Point(150, y), new Size(250, 30));
+            labelCommandStatus = CreateLabel("Готов к выполнению команд", new Font("Segoe UI", 9), new Point(150, y), new Size(this.ClientSize.Width - 180, 30));
             labelCommandStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
+            labelCommandStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             this.Controls.Add(labelCommandStatus);
             y += 40;
 
-            // Вывод результата
             this.Controls.Add(CreateLabel("Вывод:", new Font("Segoe UI", 10), new Point(20, y), new Size(60, 25)));
 
             richOutput = new RichTextBox
             {
                 Location = new Point(20, y + 25),
-                Size = new Size(460, 150),
+                Size = new Size(this.ClientSize.Width - 40, this.ClientSize.Height - 400),
                 Font = new Font("Consolas", 9),
                 BackColor = Color.FromArgb(40, 40, 40),
                 ForeColor = Color.Lime,
                 ReadOnly = true,
                 BorderStyle = BorderStyle.Fixed3D,
-                Text = "> Готов к работе...\n"
+                Text = "> Готов к работе...\n",
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             this.Controls.Add(richOutput);
 
-            // Применяем контрастные цвета
             ColorHelper.ApplyContrastToControls(this);
         }
 
@@ -405,18 +405,22 @@ namespace FlooxOC
             }
         }
 
-        // ====== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ ======
+        // ====== ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ (С КОДОМ АКТИВАЦИИ) ======
         private void ShowUserInfo()
         {
             var user = AccountManager.GetCurrentUser();
             if (user != null)
             {
+                // Получаем код активации из AccountManager
+                string activationCode = user.ActivationCode ?? "Не активирован";
+
                 AppendOutput("👤 Информация о пользователе:");
                 AppendOutput($"   Логин: {user.Login}");
                 AppendOutput($"   Имя: {user.UserName ?? "Не указано"}");
                 AppendOutput($"   Дата регистрации: {user.CreatedDate:dd.MM.yyyy HH:mm}");
                 AppendOutput($"   Последний вход: {user.LastLogin:dd.MM.yyyy HH:mm}");
                 AppendOutput($"   Статус: {(user.IsActivated ? "✅ Активирован" : "❌ Не активирован")}");
+                AppendOutput($"   🔑 Код активации: {activationCode}");
             }
             else
             {
@@ -432,6 +436,7 @@ namespace FlooxOC
             {
                 AppendOutput($"📅 Дата регистрации: {user.CreatedDate:dd.MM.yyyy HH:mm}");
                 AppendOutput($"   Прошло дней: {(DateTime.Now - user.CreatedDate).Days} дней");
+                AppendOutput($"   🔑 Код активации: {user.ActivationCode ?? "Не активирован"}");
             }
             else
             {
@@ -452,7 +457,7 @@ namespace FlooxOC
             AppendOutput("  clear                - Очистить вывод");
             AppendOutput("  help                 - Показать эту справку");
             AppendOutput("");
-            AppendOutput("💡 Пример: check_connection");
+            AppendOutput("💡 Пример: user");
         }
 
         // ===== ДОБАВЛЕНИЕ В ВЫВОД =====
@@ -469,6 +474,90 @@ namespace FlooxOC
         }
 
         // ===== ОБНОВЛЕНИЯ =====
+
+        private async System.Threading.Tasks.Task<string> GetLatestVersionFromGitHub()
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(15);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+
+                    string url = "https://raw.githubusercontent.com/MihailBabushkin/FLooxOC_SV/master/version.txt";
+
+                    var response = await client.GetAsync(url);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string version = await response.Content.ReadAsStringAsync();
+                        version = version.Trim();
+
+                        if (!string.IsNullOrEmpty(version))
+                        {
+                            return version;
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Ошибка загрузки версии: {response.StatusCode}");
+                        AppendOutput($"⚠️ GitHub не отвечает (HTTP {response.StatusCode})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"GetLatestVersionFromGitHub error: {ex.Message}");
+                AppendOutput($"⚠️ Ошибка проверки обновлений: {ex.Message}");
+            }
+
+            return currentVersion;
+        }
+
+        private int CompareVersions(string v1, string v2)
+        {
+            try
+            {
+                string v1Clean = v1.TrimStart('v', 'V');
+                string v2Clean = v2.TrimStart('v', 'V');
+
+                var version1 = new Version(v1Clean);
+                var version2 = new Version(v2Clean);
+
+                return version1.CompareTo(version2);
+            }
+            catch
+            {
+                return string.Compare(v1, v2, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private async void CheckForUpdatesSilently()
+        {
+            try
+            {
+                string latestVersion = await GetLatestVersionFromGitHub();
+
+                if (!string.IsNullOrEmpty(latestVersion) && latestVersion != currentVersion)
+                {
+                    if (CompareVersions(currentVersion, latestVersion) < 0)
+                    {
+                        labelVersionStatus.Text = $"🔄 Доступна новая версия: {latestVersion}";
+                        labelVersionStatus.ForeColor = Color.DarkOrange;
+                        return;
+                    }
+                }
+
+                labelVersionStatus.Text = "✅ Система актуальна";
+                labelVersionStatus.ForeColor = Color.DarkGreen;
+            }
+            catch (Exception ex)
+            {
+                labelVersionStatus.Text = $"ℹ️ Не удалось проверить обновления: {ex.Message}";
+                labelVersionStatus.ForeColor = Color.Gray;
+            }
+        }
+
         private async void OnCheckUpdatesClick(object sender, EventArgs e)
         {
             buttonCheckUpdates.Enabled = false;
@@ -520,7 +609,6 @@ namespace FlooxOC
         {
             DialogResult result = MessageBox.Show(
                 "⚠️ Обновление системы заменит все файлы.\n\n" +
-                "Рекомендуется сделать резервную копию.\n\n" +
                 "Продолжить?",
                 "Обновление системы",
                 MessageBoxButtons.YesNo,
@@ -573,90 +661,6 @@ namespace FlooxOC
                 buttonCheckUpdates.Enabled = true;
                 buttonCheckUpdates.Text = "🔄 Проверить обновления";
                 ColorHelper.ApplyContrastToControls(this);
-            }
-        }
-
-        // ===== ПОЛУЧЕНИЕ ВЕРСИИ С GITHUB =====
-        private async System.Threading.Tasks.Task<string> GetLatestVersionFromGitHub()
-        {
-            try
-            {
-                using (var client = new HttpClient())
-                {
-                    client.Timeout = TimeSpan.FromSeconds(15);
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-
-                    string url = "https://raw.githubusercontent.com/MihailBabushkin/FLooxOC_SV/master/version.txt";
-
-                    var response = await client.GetAsync(url);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string version = await response.Content.ReadAsStringAsync();
-                        version = version.Trim();
-
-                        if (!string.IsNullOrEmpty(version))
-                        {
-                            return version;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Ошибка загрузки версии: {response.StatusCode}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"GetLatestVersionFromGitHub error: {ex.Message}");
-            }
-
-            return currentVersion;
-        }
-
-        // ===== СРАВНЕНИЕ ВЕРСИЙ =====
-        private int CompareVersions(string v1, string v2)
-        {
-            try
-            {
-                string v1Clean = v1.TrimStart('v', 'V');
-                string v2Clean = v2.TrimStart('v', 'V');
-
-                var version1 = new Version(v1Clean);
-                var version2 = new Version(v2Clean);
-
-                return version1.CompareTo(version2);
-            }
-            catch
-            {
-                return string.Compare(v1, v2, StringComparison.OrdinalIgnoreCase);
-            }
-        }
-
-        // ===== ТИХАЯ ПРОВЕРКА =====
-        private async void CheckForUpdatesSilently()
-        {
-            try
-            {
-                string latestVersion = await GetLatestVersionFromGitHub();
-
-                if (!string.IsNullOrEmpty(latestVersion) && latestVersion != currentVersion)
-                {
-                    if (CompareVersions(currentVersion, latestVersion) < 0)
-                    {
-                        labelVersionStatus.Text = $"🔄 Доступна новая версия: {latestVersion}";
-                        labelVersionStatus.ForeColor = Color.DarkOrange;
-                        return;
-                    }
-                }
-
-                labelVersionStatus.Text = "✅ Система актуальна";
-                labelVersionStatus.ForeColor = Color.DarkGreen;
-            }
-            catch
-            {
-                labelVersionStatus.Text = "ℹ️ Не удалось проверить обновления";
-                labelVersionStatus.ForeColor = Color.Gray;
             }
         }
     }
