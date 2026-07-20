@@ -38,32 +38,6 @@ namespace FlooxOC
             InitializeComponents();
             ApplyColors();
             StartSilentUpdateCheck();
-
-            // ===== ПОДПИСЫВАЕМСЯ НА ИЗМЕНЕНИЕ РАЗМЕРА =====
-            this.Resize += (s, e) => ResizeComponents();
-        }
-
-        // ===== МАСШТАБИРОВАНИЕ КОМПОНЕНТОВ =====
-        private void ResizeComponents()
-        {
-            if (richOutput == null || labelCommandStatus == null) return;
-
-            int width = this.ClientSize.Width - 40;
-            int height = this.ClientSize.Height - 400;
-
-            // Обновляем размер вывода
-            richOutput.Width = Math.Max(200, width);
-            richOutput.Height = Math.Max(50, height);
-
-            // Обновляем статус
-            labelCommandStatus.Width = Math.Max(200, width - 180);
-
-            // Обновляем команду
-            textCommand.Width = Math.Max(200, width - 170);
-
-            // Применяем контрастные цвета
-            ColorHelper.ApplyContrastToControls(this);
-            this.Refresh();
         }
 
         // ===== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ =====
@@ -241,11 +215,10 @@ namespace FlooxOC
             textCommand = new TextBox
             {
                 Location = new Point(100, y),
-                Size = new Size(this.ClientSize.Width - 190, 25),
+                Size = new Size(250, 25),
                 Font = new Font("Consolas", 10),
                 BackColor = Color.FromArgb(40, 40, 40),
-                ForeColor = Color.Lime,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                ForeColor = Color.Lime
             };
             textCommand.KeyPress += (s, e) =>
             {
@@ -263,7 +236,7 @@ namespace FlooxOC
             this.Controls.Add(buttonExecute);
 
             // Статус команды
-            labelCommandStatus = CreateLabel("Готов к выполнению команд", new Font("Segoe UI", 9), new Point(150, y), new Size(this.ClientSize.Width - 180, 30));
+            labelCommandStatus = CreateLabel("Готов к выполнению команд", new Font("Segoe UI", 9), new Point(150, y), new Size(250, 30));
             labelCommandStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
             this.Controls.Add(labelCommandStatus);
             y += 40;
@@ -274,14 +247,13 @@ namespace FlooxOC
             richOutput = new RichTextBox
             {
                 Location = new Point(20, y + 25),
-                Size = new Size(this.ClientSize.Width - 40, this.ClientSize.Height - 400),
+                Size = new Size(460, 150),
                 Font = new Font("Consolas", 9),
                 BackColor = Color.FromArgb(40, 40, 40),
                 ForeColor = Color.Lime,
                 ReadOnly = true,
                 BorderStyle = BorderStyle.Fixed3D,
-                Text = "> Готов к работе...\n",
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+                Text = "> Готов к работе...\n"
             };
             this.Controls.Add(richOutput);
 
@@ -289,7 +261,7 @@ namespace FlooxOC
             ColorHelper.ApplyContrastToControls(this);
         }
 
-        // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ СОЗДАНИЯ КОНТРОЛОВ =====
+        // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
         private Label CreateLabel(string text, Font font, Point location, Size size)
         {
             return new Label
@@ -379,30 +351,30 @@ namespace FlooxOC
             labelCommandStatus.ForeColor = ColorHelper.GetContrastTextColor(this.BackColor);
         }
 
-        // ====== ПРОВЕРКА СВЯЗИ С MySQL ======
+        // ====== ПРОВЕРКА СВЯЗИ ======
         private async System.Threading.Tasks.Task CheckMySQLConnection()
         {
             try
             {
-                labelCommandStatus.Text = "⏳ Проверка связи с MySQL...";
+                labelCommandStatus.Text = "⏳ Проверка связи с сервером...";
                 labelCommandStatus.ForeColor = Color.DarkBlue;
-                AppendOutput("🔍 Проверка связи с MySQL базой данных...");
+                AppendOutput("🔍 Проверка связи с сервером...");
 
                 var result = await MySQLManager.CheckConnection();
 
                 if (result.Success)
                 {
                     AppendOutput($"✅ {result.Message}");
-                    AppendOutput($"📊 Кодов: {result.TotalCodes}");
+                    AppendOutput($"📊 Всего создано: {result.TotalCodes}");
                     AppendOutput($"   ✅ Свободно: {result.FreeCodes}");
-                    AppendOutput($"   ❌ Использовано: {result.UsedCodes}");
-                    labelCommandStatus.Text = "✅ Связь с MySQL установлена!";
+                    AppendOutput($"   ❌ Использовано: {result.ActivatedUsers}");
+                    labelCommandStatus.Text = "✅ Связь с сервером установлена!";
                     labelCommandStatus.ForeColor = Color.DarkGreen;
                 }
                 else
                 {
                     AppendOutput($"❌ {result.Message}");
-                    labelCommandStatus.Text = "❌ Ошибка связи с MySQL!";
+                    labelCommandStatus.Text = "❌ Ошибка связи с сервером!";
                     labelCommandStatus.ForeColor = Color.Red;
                 }
             }
@@ -414,7 +386,7 @@ namespace FlooxOC
             }
         }
 
-        // ====== СТАТИСТИКА КОДОВ (MySQL) ======
+        // ====== СТАТИСТИКА КОДОВ ======
         private async System.Threading.Tasks.Task ShowCodeStatistics()
         {
             try
@@ -472,7 +444,7 @@ namespace FlooxOC
         {
             AppendOutput("📋 Доступные команды:");
             AppendOutput("");
-            AppendOutput("  check_connection     - Проверить связь с MySQL базой данных");
+            AppendOutput("  check_connection     - Проверить связь с сервером");
             AppendOutput("  code_stats           - Показать статистику кодов");
             AppendOutput("  user                 - Информация о текущем пользователе");
             AppendOutput("  date                 - Дата регистрации пользователя");
