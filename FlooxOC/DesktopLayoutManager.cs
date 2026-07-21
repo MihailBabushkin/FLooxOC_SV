@@ -1,5 +1,4 @@
-﻿using FlooxOC;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -45,13 +44,15 @@ namespace FlooxOC
             {
                 Directory.CreateDirectory(DataPath);
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка создания папки: {ex.Message}", "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            catch { }
         }
 
+        public static bool HasSavedLayout()
+        {
+            return File.Exists(CurrentLayoutFile);
+        }
+
+        // ===== СОХРАНЕНИЕ ТЕКУЩЕГО МАКЕТА =====
         public static void SaveCurrentLayout(Panel desktopPanel)
         {
             try
@@ -68,44 +69,32 @@ namespace FlooxOC
                 {
                     if (ctrl is DesktopIcon icon)
                     {
+                        // Используем AppId для идентификации, если он пустой - генерируем
+                        string id = string.IsNullOrEmpty(icon.AppId) ? Guid.NewGuid().ToString() : icon.AppId;
+
                         var iconLayout = new IconLayout
                         {
-                            Id = icon.AppId ?? "",
+                            Id = id,
                             Name = icon.GetText() ?? "Иконка",
                             Type = icon.Type ?? "app",
                             X = icon.Location.X,
                             Y = icon.Location.Y
                         };
 
-                        if (icon.Type == "bookmark")
-                        {
-                            var bookmark = BookmarkManager.GetBookmarks().Find(b => b.Id == icon.AppId);
-                            if (bookmark != null)
-                                iconLayout.Data = bookmark.Url;
-                        }
-                        else if (icon.Type == "app")
-                        {
-                            var app = AppManager.GetApps().Find(a => a.Id == icon.AppId);
-                            if (app != null)
-                                iconLayout.Data = app.ExecutablePath;
-                        }
-
                         layout.Icons.Add(iconLayout);
                     }
                 }
-
-                if (layout.Icons.Count == 0) return;
 
                 string json = JsonSerializer.Serialize(layout, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(CurrentLayoutFile, json);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка сохранения макета: {ex.Message}", "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Console.WriteLine($"Ошибка сохранения макета: {ex.Message}");
             }
         }
 
+        // ===== ВОССТАНОВЛЕНИЕ ТЕКУЩЕГО МАКЕТА =====
         public static void RestoreCurrentLayout(Panel desktopPanel)
         {
             if (!File.Exists(CurrentLayoutFile)) return;
@@ -116,25 +105,37 @@ namespace FlooxOC
                 var layout = JsonSerializer.Deserialize<DesktopLayout>(json);
                 if (layout == null || layout.Icons.Count == 0) return;
 
-                foreach (var iconLayout in layout.Icons)
+                // Собираем все иконки на рабочем столе по AppId
+                Dictionary<string, DesktopIcon> iconsMap = new Dictionary<string, DesktopIcon>();
+                foreach (Control ctrl in desktopPanel.Controls)
                 {
-                    foreach (Control ctrl in desktopPanel.Controls)
+                    if (ctrl is DesktopIcon icon)
                     {
-                        if (ctrl is DesktopIcon icon && icon.AppId == iconLayout.Id)
-                        {
-                            icon.SetPosition(new Point(iconLayout.X, iconLayout.Y));
-                            break;
-                        }
+                        string id = string.IsNullOrEmpty(icon.AppId) ? Guid.NewGuid().ToString() : icon.AppId;
+                        iconsMap[id] = icon;
                     }
                 }
+
+                // Восстанавливаем позиции
+                int restoredCount = 0;
+                foreach (var iconLayout in layout.Icons)
+                {
+                    if (iconsMap.ContainsKey(iconLayout.Id))
+                    {
+                        iconsMap[iconLayout.Id].SetPosition(new Point(iconLayout.X, iconLayout.Y));
+                        restoredCount++;
+                    }
+                }
+
+                Console.WriteLine($"Восстановлено позиций: {restoredCount} из {layout.Icons.Count}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка восстановления макета: {ex.Message}", "Ошибка",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Console.WriteLine($"Ошибка восстановления макета: {ex.Message}");
             }
         }
 
+        // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
         public static void SaveBackup(string name, Panel desktopPanel)
         {
             try
@@ -151,27 +152,16 @@ namespace FlooxOC
                 {
                     if (ctrl is DesktopIcon icon)
                     {
+                        string id = string.IsNullOrEmpty(icon.AppId) ? Guid.NewGuid().ToString() : icon.AppId;
+
                         var iconLayout = new IconLayout
                         {
-                            Id = icon.AppId ?? "",
+                            Id = id,
                             Name = icon.GetText() ?? "Иконка",
                             Type = icon.Type ?? "app",
                             X = icon.Location.X,
                             Y = icon.Location.Y
                         };
-
-                        if (icon.Type == "bookmark")
-                        {
-                            var bookmark = BookmarkManager.GetBookmarks().Find(b => b.Id == icon.AppId);
-                            if (bookmark != null)
-                                iconLayout.Data = bookmark.Url;
-                        }
-                        else if (icon.Type == "app")
-                        {
-                            var app = AppManager.GetApps().Find(a => a.Id == icon.AppId);
-                            if (app != null)
-                                iconLayout.Data = app.ExecutablePath;
-                        }
 
                         layout.Icons.Add(iconLayout);
                     }
@@ -222,7 +212,7 @@ namespace FlooxOC
                     return;
                 }
 
-                // Удаляем все иконки (кроме системных)
+                // Удаляем все не-системные иконки
                 List<Control> toRemove = new List<Control>();
                 foreach (Control ctrl in desktopPanel.Controls)
                 {
@@ -267,7 +257,6 @@ namespace FlooxOC
                     icon.AppId = iconLayout.Id;
                     icon.SetPosition(new Point(iconLayout.X, iconLayout.Y));
 
-                    // === ОТКРЫТИЕ ПО КЛИКУ ===
                     icon.Click += (s, e) =>
                     {
                         if (icon.Type == "bookmark")
@@ -288,7 +277,6 @@ namespace FlooxOC
                         }
                     };
 
-                    // === УДАЛЕНИЕ ===
                     icon.OnDelete += (s, e) =>
                     {
                         DialogResult result = MessageBox.Show($"Удалить '{icon.GetText()}'?", "Подтверждение",

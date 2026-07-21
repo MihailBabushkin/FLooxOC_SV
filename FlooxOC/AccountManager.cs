@@ -1,12 +1,9 @@
-﻿using FlooxOC;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace FlooxOC
@@ -19,8 +16,6 @@ namespace FlooxOC
         );
         private static string AccountsFile = Path.Combine(DataPath, "accounts.json");
         private static string SettingsFile = Path.Combine(DataPath, "settings.json");
-
-        private const string ACTIVATION_SERVER = "https://your-server.com/api/activate";
 
         public class AccountData
         {
@@ -54,11 +49,11 @@ namespace FlooxOC
 
         private static AppSettings settings = new AppSettings();
         private static AccountData currentUser = null;
-        private static readonly HttpClient httpClient = new HttpClient();
         private static Timer demoWarningTimer;
         private static Timer demoExpireTimer;
         private static Form1 mainForm;
 
+        // ===== СВОЙСТВА =====
         public static bool RequirePassword
         {
             get => settings.RequirePassword;
@@ -109,9 +104,15 @@ namespace FlooxOC
             }
         }
 
+        // ===== СТАТИЧЕСКИЙ КОНСТРУКТОР =====
         static AccountManager()
         {
-            Directory.CreateDirectory(DataPath);
+            try
+            {
+                Directory.CreateDirectory(DataPath);
+            }
+            catch { }
+
             LoadSettings();
 
             if (string.IsNullOrEmpty(settings.MachineId))
@@ -121,6 +122,7 @@ namespace FlooxOC
             }
         }
 
+        // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
         private static string GetMachineId()
         {
             try
@@ -152,50 +154,16 @@ namespace FlooxOC
             }
         }
 
-        // ====== АКТИВАЦИЯ ======
-
-        public static async Task<bool> ActivateCode(string code)
+        public static string HashPassword(string password)
         {
-            try
+            using (SHA256 sha256 = SHA256.Create())
             {
-                var data = new
-                {
-                    code = code,
-                    machine_id = settings.MachineId
-                };
-                string json = JsonSerializer.Serialize(data);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                HttpResponseMessage response = await httpClient.PostAsync(ACTIVATION_SERVER, content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    string result = await response.Content.ReadAsStringAsync();
-                    var responseData = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
-
-                    if (responseData != null && responseData.ContainsKey("success") && (bool)responseData["success"])
-                    {
-                        settings.ActivationCode = code;
-                        settings.FirstRun = false;
-                        settings.IsDemoMode = false;
-                        settings.IsDemoExpired = false;
-                        settings.DemoStartTime = DateTime.MinValue;
-                        SaveSettings();
-
-                        StopDemoTimers();
-
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch
-            {
-                return false;
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                return Convert.ToBase64String(bytes);
             }
         }
 
-        // ====== СОХРАНЕНИЕ КОДА АКТИВАЦИИ (ЛОКАЛЬНО) ======
+        // ====== АКТИВАЦИЯ ======
         public static void SaveActivationCode(string code)
         {
             settings.ActivationCode = code;
@@ -205,42 +173,32 @@ namespace FlooxOC
             SaveSettings();
         }
 
-        // ====== ПРОВЕРКА, АКТИВИРОВАНА ЛИ СИСТЕМА ======
         public static bool IsSystemActivated()
         {
             return !string.IsNullOrEmpty(settings.ActivationCode);
         }
 
-        // ====== ПРОВЕРКА, НУЖНА ЛИ АКТИВАЦИЯ ======
+        public static bool IsActivated()
+        {
+            return IsSystemActivated();
+        }
+
         public static bool NeedsActivation()
         {
-            // Если система уже активирована - не нужно
             if (IsSystemActivated())
                 return false;
 
-            // Если демо-режим активен и не истёк - не нужно
             if (settings.IsDemoMode && !settings.IsDemoExpired)
                 return false;
 
-            // В остальных случаях - нужно
             return true;
-        }
-
-        public static bool ValidateCodeLocally(string code)
-        {
-            string[] validCodes = { "DEMO-2024", "TEST-1234", "FREE-2024" };
-            foreach (var valid in validCodes)
-            {
-                if (code == valid)
-                    return true;
-            }
-            return false;
         }
 
         // ====== ПОЛЬЗОВАТЕЛИ ======
 
         public static bool RegisterUser(string login, string password, string userName = "")
         {
+            // === ПРОВЕРКА ЛОГИНА ===
             if (string.IsNullOrEmpty(login) || login.Length < 3)
             {
                 MessageBox.Show("Логин должен содержать минимум 3 символа!", "Ошибка",
@@ -248,6 +206,7 @@ namespace FlooxOC
                 return false;
             }
 
+            // === ПРОВЕРКА НА СУЩЕСТВОВАНИЕ ===
             var accounts = LoadAccounts();
             if (accounts.Exists(a => a.Login == login))
             {
@@ -256,6 +215,7 @@ namespace FlooxOC
                 return false;
             }
 
+            // === ПРОВЕРКА ПАРОЛЯ ===
             if (settings.RequirePassword)
             {
                 if (string.IsNullOrEmpty(password) || password.Length < 3)
@@ -266,6 +226,7 @@ namespace FlooxOC
                 }
             }
 
+            // === СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ ===
             var newUser = new AccountData
             {
                 Login = login,
@@ -299,16 +260,26 @@ namespace FlooxOC
                 return false;
             }
 
-            if (settings.RequirePassword)
+            // === ЕСЛИ ПАРОЛЬ НЕ ТРЕБУЕТСЯ ===
+            if (!settings.RequirePassword)
             {
-                if (HashPassword(password) != user.PasswordHash)
-                {
-                    MessageBox.Show("Неверный пароль!", "Ошибка",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return false;
-                }
+                currentUser = user;
+                user.LastLogin = DateTime.Now;
+                SaveAccounts(accounts);
+                settings.LastUser = login;
+                SaveSettings();
+                return true;
             }
 
+            // === ПРОВЕРКА ПАРОЛЯ ===
+            if (HashPassword(password) != user.PasswordHash)
+            {
+                MessageBox.Show("Неверный пароль!", "Ошибка",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            // === УСПЕШНЫЙ ВХОД ===
             currentUser = user;
             user.LastLogin = DateTime.Now;
             SaveAccounts(accounts);
@@ -338,11 +309,6 @@ namespace FlooxOC
             return settings.FirstRun;
         }
 
-        public static bool IsActivated()
-        {
-            return IsSystemActivated();
-        }
-
         public static string GetLastUser()
         {
             return settings.LastUser;
@@ -361,15 +327,6 @@ namespace FlooxOC
 
             if (currentUser?.Login == login)
                 currentUser = null;
-        }
-
-        public static string HashPassword(string password)
-        {
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(bytes);
-            }
         }
 
         // ====== ДЕМО-РЕЖИМ ======

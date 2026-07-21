@@ -33,7 +33,6 @@ namespace FlooxOC
             InitializeTaskbar();
             InitializeDesktop();
             InitializeDesktopContextMenu();
-            LoadSavedItems();
 
             this.Load += (s, e) => CheckDemoStatus();
 
@@ -41,9 +40,18 @@ namespace FlooxOC
             layoutTimer.Interval = 500;
             layoutTimer.Tick += (s, e) => UpdateLanguageIndicator();
             layoutTimer.Start();
+
+            this.FormClosing += Form1_FormClosing;
         }
 
-        // ===== ОБНОВЛЕНИЕ ИНДИКАТОРА РАСКЛАДКИ КЛАВИАТУРЫ =====
+        // ===== СОХРАНЕНИЕ ПРИ ЗАКРЫТИИ =====
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            SaveDesktopLayout();
+            SaveWallpaperColor(this.BackColor);
+        }
+
+        // ===== ОБНОВЛЕНИЕ ИНДИКАТОРА ЯЗЫКА =====
         private void UpdateLanguageIndicator()
         {
             if (languageLabel == null) return;
@@ -94,6 +102,7 @@ namespace FlooxOC
             }
         }
 
+        // ===== ПАНЕЛЬ ЗАДАЧ =====
         private void InitializeTaskbar()
         {
             taskbar = new Panel();
@@ -226,6 +235,7 @@ namespace FlooxOC
             };
         }
 
+        // ===== РАБОЧИЙ СТОЛ =====
         private void InitializeDesktop()
         {
             desktopPanel = new Panel();
@@ -234,81 +244,61 @@ namespace FlooxOC
             desktopPanel.Name = "desktopPanel";
             this.Controls.Add(desktopPanel);
 
+            CreateSystemIcons();
+            LoadSavedItems();
+            RestoreDesktopLayout();
+
+            if (!DesktopLayoutManager.HasSavedLayout())
+            {
+                ResetIconsToDefault();
+            }
+        }
+
+        // ===== СОЗДАНИЕ СИСТЕМНЫХ ИКОНОК =====
+        private void CreateSystemIcons()
+        {
             int y = 20;
 
             DesktopIcon calcIcon = new DesktopIcon("Калькулятор", CreateIcon("🧮"), "system");
+            calcIcon.AppId = "system_calc";
             calcIcon.Location = new Point(20, y);
             calcIcon.Click += (s, e) => OpenCalculator();
             desktopPanel.Controls.Add(calcIcon);
             y += 85;
 
             DesktopIcon notepadIcon = new DesktopIcon("Блокнот", CreateIcon("📝"), "system");
+            notepadIcon.AppId = "system_notepad";
             notepadIcon.Location = new Point(20, y);
             notepadIcon.Click += (s, e) => OpenNotepad();
             desktopPanel.Controls.Add(notepadIcon);
             y += 85;
 
             DesktopIcon browserIcon = new DesktopIcon("Браузер", CreateIcon("🌐"), "system");
+            browserIcon.AppId = "system_browser";
             browserIcon.Location = new Point(20, y);
             browserIcon.Click += (s, e) => OpenBrowser();
             desktopPanel.Controls.Add(browserIcon);
             y += 85;
 
             DesktopIcon settingsIcon = new DesktopIcon("Настройки", CreateIcon("⚙️"), "system");
+            settingsIcon.AppId = "system_settings";
             settingsIcon.Location = new Point(20, y);
             settingsIcon.Click += (s, e) => OpenSettings();
             desktopPanel.Controls.Add(settingsIcon);
             y += 85;
 
             DesktopIcon musicIcon = new DesktopIcon("Музыка", CreateIcon("🎵"), "system");
+            musicIcon.AppId = "system_music";
             musicIcon.Location = new Point(20, y);
             musicIcon.Click += (s, e) => OpenMusicPlayer();
             desktopPanel.Controls.Add(musicIcon);
             y += 85;
 
             DesktopIcon infoIcon = new DesktopIcon("Информация", CreateIcon("ℹ️"), "system");
+            infoIcon.AppId = "system_info";
             infoIcon.Location = new Point(20, y);
             infoIcon.Click += (s, e) => OpenSystemInfo();
             desktopPanel.Controls.Add(infoIcon);
-        }
-
-        private void InitializeDesktopContextMenu()
-        {
-            ContextMenuStrip desktopMenu = new ContextMenuStrip();
-
-            ToolStripMenuItem addAppItem = new ToolStripMenuItem("➕ Добавить приложение");
-            addAppItem.Click += (s, e) => AddExternalApp();
-            desktopMenu.Items.Add(addAppItem);
-
-            ToolStripMenuItem addBookmarkItem = new ToolStripMenuItem("🔖 Добавить закладку");
-            addBookmarkItem.Click += (s, e) => AddBookmark();
-            desktopMenu.Items.Add(addBookmarkItem);
-
-            desktopMenu.Items.Add(new ToolStripSeparator());
-
-            ToolStripMenuItem backupMenu = new ToolStripMenuItem("💾 Бэкапы рабочего стола");
-
-            ToolStripMenuItem saveBackupItem = new ToolStripMenuItem("💾 Сохранить макет");
-            saveBackupItem.Click += (s, e) => SaveDesktopLayout();
-            backupMenu.DropDownItems.Add(saveBackupItem);
-
-            ToolStripMenuItem restoreBackupItem = new ToolStripMenuItem("📂 Восстановить макет");
-            restoreBackupItem.Click += (s, e) => RestoreDesktopLayout();
-            backupMenu.DropDownItems.Add(restoreBackupItem);
-
-            ToolStripMenuItem deleteBackupItem = new ToolStripMenuItem("🗑️ Удалить макет");
-            deleteBackupItem.Click += (s, e) => DeleteDesktopLayout();
-            backupMenu.DropDownItems.Add(deleteBackupItem);
-
-            desktopMenu.Items.Add(backupMenu);
-
-            desktopMenu.Items.Add(new ToolStripSeparator());
-
-            ToolStripMenuItem refreshItem = new ToolStripMenuItem("⟳ Обновить");
-            refreshItem.Click += (s, e) => RefreshDesktop();
-            desktopMenu.Items.Add(refreshItem);
-
-            desktopPanel.ContextMenuStrip = desktopMenu;
         }
 
         private void LoadSavedItems()
@@ -342,6 +332,74 @@ namespace FlooxOC
             }
         }
 
+        private void RestoreDesktopLayout()
+        {
+            try
+            {
+                if (DesktopLayoutManager.HasSavedLayout())
+                {
+                    DesktopLayoutManager.RestoreCurrentLayout(desktopPanel);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка восстановления макета: {ex.Message}");
+            }
+        }
+
+        public void SaveDesktopLayout()
+        {
+            try
+            {
+                DesktopLayoutManager.SaveCurrentLayout(desktopPanel);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка сохранения макета: {ex.Message}");
+            }
+        }
+
+        // ===== КОНТЕКСТНОЕ МЕНЮ =====
+        private void InitializeDesktopContextMenu()
+        {
+            ContextMenuStrip desktopMenu = new ContextMenuStrip();
+
+            ToolStripMenuItem addAppItem = new ToolStripMenuItem("➕ Добавить приложение");
+            addAppItem.Click += (s, e) => AddExternalApp();
+            desktopMenu.Items.Add(addAppItem);
+
+            ToolStripMenuItem addBookmarkItem = new ToolStripMenuItem("🔖 Добавить закладку");
+            addBookmarkItem.Click += (s, e) => AddBookmark();
+            desktopMenu.Items.Add(addBookmarkItem);
+
+            desktopMenu.Items.Add(new ToolStripSeparator());
+
+            ToolStripMenuItem backupMenu = new ToolStripMenuItem("💾 Бэкапы рабочего стола");
+
+            ToolStripMenuItem saveBackupItem = new ToolStripMenuItem("💾 Сохранить макет");
+            saveBackupItem.Click += (s, e) => SaveDesktopLayoutBackup();
+            backupMenu.DropDownItems.Add(saveBackupItem);
+
+            ToolStripMenuItem restoreBackupItem = new ToolStripMenuItem("📂 Восстановить макет");
+            restoreBackupItem.Click += (s, e) => RestoreDesktopLayoutBackup();
+            backupMenu.DropDownItems.Add(restoreBackupItem);
+
+            ToolStripMenuItem deleteBackupItem = new ToolStripMenuItem("🗑️ Удалить макет");
+            deleteBackupItem.Click += (s, e) => DeleteDesktopLayoutBackup();
+            backupMenu.DropDownItems.Add(deleteBackupItem);
+
+            desktopMenu.Items.Add(backupMenu);
+
+            desktopMenu.Items.Add(new ToolStripSeparator());
+
+            ToolStripMenuItem refreshItem = new ToolStripMenuItem("⟳ Обновить");
+            refreshItem.Click += (s, e) => RefreshDesktop();
+            desktopMenu.Items.Add(refreshItem);
+
+            desktopPanel.ContextMenuStrip = desktopMenu;
+        }
+
+        // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
         private Image CreateIcon(string emoji)
         {
             Bitmap bmp = new Bitmap(40, 40);
@@ -370,7 +428,6 @@ namespace FlooxOC
             return maxY;
         }
 
-        // ===== ПОЛУЧЕНИЕ ПОЗИЦИИ КУРСОРА НА РАБОЧЕМ СТОЛЕ =====
         private Point GetCursorPositionOnDesktop()
         {
             try
@@ -427,6 +484,8 @@ namespace FlooxOC
 
                         MessageBox.Show($"Приложение '{name}' добавлено!", "Успех",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        SaveDesktopLayout();
                     }
                     catch (Exception ex)
                     {
@@ -462,10 +521,17 @@ namespace FlooxOC
                 {
                     AppManager.RemoveApp(appIcon.AppId);
                     desktopPanel.Controls.Remove(appIcon);
+                    SaveDesktopLayout();
                 }
             };
 
             desktopPanel.Controls.Add(appIcon);
+        }
+
+        private void AddAppIcon(AppInfo app)
+        {
+            Point cursorPos = GetCursorPositionOnDesktop();
+            AddAppIconAtPosition(app, cursorPos);
         }
 
         // ===== ДОБАВЛЕНИЕ ЗАКЛАДКИ =====
@@ -537,6 +603,8 @@ namespace FlooxOC
 
                         MessageBox.Show($"Закладка '{name}' добавлена!", "Успех",
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        SaveDesktopLayout();
                     }
                     catch
                     {
@@ -582,17 +650,11 @@ namespace FlooxOC
                 {
                     BookmarkManager.RemoveBookmark(bookmarkIcon.AppId);
                     desktopPanel.Controls.Remove(bookmarkIcon);
+                    SaveDesktopLayout();
                 }
             };
 
             desktopPanel.Controls.Add(bookmarkIcon);
-        }
-
-        // ===== СТАРЫЕ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ =====
-        private void AddAppIcon(AppInfo app)
-        {
-            Point cursorPos = GetCursorPositionOnDesktop();
-            AddAppIconAtPosition(app, cursorPos);
         }
 
         private void AddBookmarkIcon(WebBookmark bookmark)
@@ -616,11 +678,305 @@ namespace FlooxOC
             window.Minimized += (s, e) => AddTaskbarButton(bookmark.Name, window);
         }
 
+        // ===== РАБОЧИЙ СТОЛ (ДОП. МЕТОДЫ) =====
         private void RefreshDesktop()
         {
             desktopPanel.Refresh();
         }
 
+        public void ResetIconsToDefault()
+        {
+            List<DesktopIcon> icons = new List<DesktopIcon>();
+            foreach (Control ctrl in desktopPanel.Controls)
+            {
+                if (ctrl is DesktopIcon icon)
+                {
+                    icons.Add(icon);
+                }
+            }
+
+            if (icons.Count == 0)
+            {
+                MessageBox.Show("Нет иконок для расстановки!", "Информация",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            icons.Sort((a, b) =>
+            {
+                if (a.Type == "system" && b.Type != "system") return -1;
+                if (a.Type != "system" && b.Type == "system") return 1;
+                return string.Compare(a.GetText(), b.GetText(), StringComparison.OrdinalIgnoreCase);
+            });
+
+            int x = 20;
+            int y = 20;
+            int spacingX = 95;
+            int spacingY = 85;
+            int maxPerRow = 6;
+
+            foreach (var icon in icons)
+            {
+                icon.Location = new Point(x, y);
+                x += spacingX;
+                if (x > maxPerRow * spacingX + 20)
+                {
+                    x = 20;
+                    y += spacingY;
+                }
+            }
+
+            SaveDesktopLayout();
+
+            MessageBox.Show($"✅ Иконки расставлены!\nВсего иконок: {icons.Count}\n" +
+                $"Системных: {icons.FindAll(i => i.Type == "system").Count}\n" +
+                $"Добавленных: {icons.FindAll(i => i.Type != "system").Count}",
+                "Расстановка иконок",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        public void ResetAllSettings()
+        {
+            this.BackColor = Color.FromArgb(0, 128, 128);
+            SaveWallpaperColor(this.BackColor);
+
+            ResetIconsToDefault();
+
+            var layouts = DesktopLayoutManager.GetLayoutsList();
+            foreach (var name in layouts)
+            {
+                DesktopLayoutManager.DeleteBackup(name);
+            }
+        }
+
+        // ===== БЭКАПЫ =====
+        private void SaveDesktopLayoutBackup()
+        {
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Сохранить макет";
+                dialog.Size = new Size(350, 120);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                Label labelName = new Label();
+                labelName.Text = "Название макета:";
+                labelName.Location = new Point(10, 10);
+                labelName.Size = new Size(100, 20);
+                dialog.Controls.Add(labelName);
+
+                TextBox textBox = new TextBox();
+                textBox.Text = $"Макет {DateTime.Now:dd.MM.yyyy HH:mm}";
+                textBox.Location = new Point(120, 10);
+                textBox.Size = new Size(200, 20);
+                dialog.Controls.Add(textBox);
+
+                Button okBtn = new Button();
+                okBtn.Text = "Сохранить";
+                okBtn.Location = new Point(150, 45);
+                okBtn.Size = new Size(80, 25);
+                okBtn.BackColor = Color.FromArgb(0, 120, 215);
+                okBtn.ForeColor = Color.White;
+                okBtn.FlatStyle = FlatStyle.Flat;
+                okBtn.DialogResult = DialogResult.OK;
+                dialog.Controls.Add(okBtn);
+
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(240, 45);
+                cancelBtn.Size = new Size(80, 25);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.DialogResult = DialogResult.Cancel;
+                dialog.Controls.Add(cancelBtn);
+
+                if (dialog.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(textBox.Text))
+                {
+                    string name = textBox.Text;
+                    DesktopLayoutManager.SaveBackup(name, desktopPanel);
+                }
+            }
+        }
+
+        private void RestoreDesktopLayoutBackup()
+        {
+            var layouts = DesktopLayoutManager.GetLayoutsList();
+
+            if (layouts.Count == 0)
+            {
+                MessageBox.Show("Нет сохранённых макетов!", "Информация",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Выберите макет для восстановления";
+                dialog.Size = new Size(300, 350);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                ListBox listBox = new ListBox
+                {
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 10),
+                    BackColor = Color.White
+                };
+                foreach (string name in layouts)
+                {
+                    listBox.Items.Add(name);
+                }
+
+                Panel buttonPanel = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 50,
+                    Padding = new Padding(10),
+                    BackColor = Color.FromArgb(192, 192, 192)
+                };
+
+                Button restoreBtn = new Button
+                {
+                    Text = "Восстановить",
+                    Location = new Point(10, 10),
+                    Size = new Size(100, 30),
+                    BackColor = Color.FromArgb(0, 120, 215),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand
+                };
+                restoreBtn.Click += (s, e) =>
+                {
+                    if (listBox.SelectedItem != null)
+                    {
+                        dialog.DialogResult = DialogResult.OK;
+                        dialog.Tag = listBox.SelectedItem.ToString();
+                        dialog.Close();
+                    }
+                };
+
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(120, 10);
+                cancelBtn.Size = new Size(100, 30);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.Cursor = Cursors.Hand;
+                cancelBtn.Click += (s, e) => dialog.Close();
+
+                buttonPanel.Controls.Add(restoreBtn);
+                buttonPanel.Controls.Add(cancelBtn);
+                dialog.Controls.Add(listBox);
+                dialog.Controls.Add(buttonPanel);
+
+                if (dialog.ShowDialog() == DialogResult.OK && dialog.Tag != null)
+                {
+                    string name = dialog.Tag.ToString();
+                    DialogResult result = MessageBox.Show($"Восстановить макет '{name}'?\n" +
+                        "Все текущие иконки (кроме системных) будут заменены.",
+                        "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        DesktopLayoutManager.RestoreBackup(name, desktopPanel);
+                    }
+                }
+            }
+        }
+
+        private void DeleteDesktopLayoutBackup()
+        {
+            var layouts = DesktopLayoutManager.GetLayoutsList();
+
+            if (layouts.Count == 0)
+            {
+                MessageBox.Show("Нет сохранённых макетов!", "Информация",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (Form dialog = new Form())
+            {
+                dialog.Text = "Выберите макет для удаления";
+                dialog.Size = new Size(300, 350);
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.BackColor = Color.FromArgb(192, 192, 192);
+
+                ListBox listBox = new ListBox
+                {
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 10),
+                    BackColor = Color.White
+                };
+                foreach (string name in layouts)
+                {
+                    listBox.Items.Add(name);
+                }
+
+                Panel buttonPanel = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 50,
+                    Padding = new Padding(10),
+                    BackColor = Color.FromArgb(192, 192, 192)
+                };
+
+                Button deleteBtn = new Button
+                {
+                    Text = "Удалить",
+                    Location = new Point(10, 10),
+                    Size = new Size(100, 30),
+                    BackColor = Color.FromArgb(200, 80, 80),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand
+                };
+                deleteBtn.Click += (s, e) =>
+                {
+                    if (listBox.SelectedItem != null)
+                    {
+                        dialog.DialogResult = DialogResult.OK;
+                        dialog.Tag = listBox.SelectedItem.ToString();
+                        dialog.Close();
+                    }
+                };
+
+                Button cancelBtn = new Button();
+                cancelBtn.Text = "Отмена";
+                cancelBtn.Location = new Point(120, 10);
+                cancelBtn.Size = new Size(100, 30);
+                cancelBtn.FlatStyle = FlatStyle.Flat;
+                cancelBtn.Cursor = Cursors.Hand;
+                cancelBtn.Click += (s, e) => dialog.Close();
+
+                buttonPanel.Controls.Add(deleteBtn);
+                buttonPanel.Controls.Add(cancelBtn);
+                dialog.Controls.Add(listBox);
+                dialog.Controls.Add(buttonPanel);
+
+                if (dialog.ShowDialog() == DialogResult.OK && dialog.Tag != null)
+                {
+                    string name = dialog.Tag.ToString();
+                    DialogResult result = MessageBox.Show($"Удалить макет '{name}'?", "Подтверждение",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        DesktopLayoutManager.DeleteBackup(name);
+                    }
+                }
+            }
+        }
+
+        // ===== МЕНЮ ПУСК =====
         private void ShowStartMenu()
         {
             using (Form menu = new Form())
@@ -723,232 +1079,7 @@ namespace FlooxOC
             }
         }
 
-        private void SaveDesktopLayout()
-        {
-            using (Form dialog = new Form())
-            {
-                dialog.Text = "Сохранить макет";
-                dialog.Size = new Size(350, 120);
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.BackColor = Color.FromArgb(192, 192, 192);
-
-                Label labelName = new Label();
-                labelName.Text = "Название макета:";
-                labelName.Location = new Point(10, 10);
-                labelName.Size = new Size(100, 20);
-                dialog.Controls.Add(labelName);
-
-                TextBox textBox = new TextBox();
-                textBox.Text = $"Макет {DateTime.Now:dd.MM.yyyy HH:mm}";
-                textBox.Location = new Point(120, 10);
-                textBox.Size = new Size(200, 20);
-                dialog.Controls.Add(textBox);
-
-                Button okBtn = new Button();
-                okBtn.Text = "Сохранить";
-                okBtn.Location = new Point(150, 45);
-                okBtn.Size = new Size(80, 25);
-                okBtn.BackColor = Color.FromArgb(0, 120, 215);
-                okBtn.ForeColor = Color.White;
-                okBtn.FlatStyle = FlatStyle.Flat;
-                okBtn.DialogResult = DialogResult.OK;
-                dialog.Controls.Add(okBtn);
-
-                Button cancelBtn = new Button();
-                cancelBtn.Text = "Отмена";
-                cancelBtn.Location = new Point(240, 45);
-                cancelBtn.Size = new Size(80, 25);
-                cancelBtn.FlatStyle = FlatStyle.Flat;
-                cancelBtn.DialogResult = DialogResult.Cancel;
-                dialog.Controls.Add(cancelBtn);
-
-                if (dialog.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(textBox.Text))
-                {
-                    string name = textBox.Text;
-                    DesktopLayoutManager.SaveBackup(name, desktopPanel);
-                }
-            }
-        }
-
-        private void RestoreDesktopLayout()
-        {
-            var layouts = DesktopLayoutManager.GetLayoutsList();
-
-            if (layouts.Count == 0)
-            {
-                MessageBox.Show("Нет сохранённых макетов!", "Информация",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            using (Form dialog = new Form())
-            {
-                dialog.Text = "Выберите макет для восстановления";
-                dialog.Size = new Size(300, 350);
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.BackColor = Color.FromArgb(192, 192, 192);
-
-                ListBox listBox = new ListBox
-                {
-                    Dock = DockStyle.Fill,
-                    Font = new Font("Segoe UI", 10),
-                    BackColor = Color.White
-                };
-                foreach (string name in layouts)
-                {
-                    listBox.Items.Add(name);
-                }
-
-                Panel buttonPanel = new Panel
-                {
-                    Dock = DockStyle.Bottom,
-                    Height = 50,
-                    Padding = new Padding(10),
-                    BackColor = Color.FromArgb(192, 192, 192)
-                };
-
-                Button restoreBtn = new Button
-                {
-                    Text = "Восстановить",
-                    Location = new Point(10, 10),
-                    Size = new Size(100, 30),
-                    BackColor = Color.FromArgb(0, 120, 215),
-                    ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand
-                };
-                restoreBtn.Click += (s, e) =>
-                {
-                    if (listBox.SelectedItem != null)
-                    {
-                        dialog.DialogResult = DialogResult.OK;
-                        dialog.Tag = listBox.SelectedItem.ToString();
-                        dialog.Close();
-                    }
-                };
-
-                Button cancelBtn = new Button();
-                cancelBtn.Text = "Отмена";
-                cancelBtn.Location = new Point(120, 10);
-                cancelBtn.Size = new Size(100, 30);
-                cancelBtn.FlatStyle = FlatStyle.Flat;
-                cancelBtn.Cursor = Cursors.Hand;
-                cancelBtn.Click += (s, e) => dialog.Close();
-
-                buttonPanel.Controls.Add(restoreBtn);
-                buttonPanel.Controls.Add(cancelBtn);
-                dialog.Controls.Add(listBox);
-                dialog.Controls.Add(buttonPanel);
-
-                if (dialog.ShowDialog() == DialogResult.OK && dialog.Tag != null)
-                {
-                    string name = dialog.Tag.ToString();
-                    DialogResult result = MessageBox.Show($"Восстановить макет '{name}'?\n" +
-                        "Все текущие иконки (кроме системных) будут заменены.",
-                        "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
-                    if (result == DialogResult.Yes)
-                    {
-                        DesktopLayoutManager.RestoreBackup(name, desktopPanel);
-                    }
-                }
-            }
-        }
-
-        private void DeleteDesktopLayout()
-        {
-            var layouts = DesktopLayoutManager.GetLayoutsList();
-
-            if (layouts.Count == 0)
-            {
-                MessageBox.Show("Нет сохранённых макетов!", "Информация",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            using (Form dialog = new Form())
-            {
-                dialog.Text = "Выберите макет для удаления";
-                dialog.Size = new Size(300, 350);
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.BackColor = Color.FromArgb(192, 192, 192);
-
-                ListBox listBox = new ListBox
-                {
-                    Dock = DockStyle.Fill,
-                    Font = new Font("Segoe UI", 10),
-                    BackColor = Color.White
-                };
-                foreach (string name in layouts)
-                {
-                    listBox.Items.Add(name);
-                }
-
-                Panel buttonPanel = new Panel
-                {
-                    Dock = DockStyle.Bottom,
-                    Height = 50,
-                    Padding = new Padding(10),
-                    BackColor = Color.FromArgb(192, 192, 192)
-                };
-
-                Button deleteBtn = new Button
-                {
-                    Text = "Удалить",
-                    Location = new Point(10, 10),
-                    Size = new Size(100, 30),
-                    BackColor = Color.FromArgb(200, 80, 80),
-                    ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand
-                };
-                deleteBtn.Click += (s, e) =>
-                {
-                    if (listBox.SelectedItem != null)
-                    {
-                        dialog.DialogResult = DialogResult.OK;
-                        dialog.Tag = listBox.SelectedItem.ToString();
-                        dialog.Close();
-                    }
-                };
-
-                Button cancelBtn = new Button();
-                cancelBtn.Text = "Отмена";
-                cancelBtn.Location = new Point(120, 10);
-                cancelBtn.Size = new Size(100, 30);
-                cancelBtn.FlatStyle = FlatStyle.Flat;
-                cancelBtn.Cursor = Cursors.Hand;
-                cancelBtn.Click += (s, e) => dialog.Close();
-
-                buttonPanel.Controls.Add(deleteBtn);
-                buttonPanel.Controls.Add(cancelBtn);
-                dialog.Controls.Add(listBox);
-                dialog.Controls.Add(buttonPanel);
-
-                if (dialog.ShowDialog() == DialogResult.OK && dialog.Tag != null)
-                {
-                    string name = dialog.Tag.ToString();
-                    DialogResult result = MessageBox.Show($"Удалить макет '{name}'?", "Подтверждение",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
-                    if (result == DialogResult.Yes)
-                    {
-                        DesktopLayoutManager.DeleteBackup(name);
-                    }
-                }
-            }
-        }
-
-        // ===== ДОБАВЛЕНИЕ КНОПКИ НА ПАНЕЛЬ ЗАДАЧ (ПУБЛИЧНЫЙ МЕТОД) =====
+        // ===== ПАНЕЛЬ ЗАДАЧ =====
         public void AddTaskbarButton(string text, CustomWindow window)
         {
             Panel taskButtonsPanel = null;
@@ -1079,8 +1210,7 @@ namespace FlooxOC
             UpdateTaskButtonsPosition();
         }
 
-        // ====== ПРИЛОЖЕНИЯ ======
-
+        // ===== ПРИЛОЖЕНИЯ =====
         private void OpenCalculator()
         {
             CustomWindow window = new CustomWindow("Калькулятор");
@@ -1166,8 +1296,7 @@ namespace FlooxOC
             window.Minimized += (s, e) => AddTaskbarButton("Информация", window);
         }
 
-        // ====== ДЕМО-РЕЖИМ ======
-
+        // ===== ДЕМО-РЕЖИМ =====
         public void CheckDemoStatus()
         {
             if (AccountManager.IsDemoMode)
@@ -1271,8 +1400,7 @@ namespace FlooxOC
             }
         }
 
-        // ====== ИНФОРМАЦИЯ ======
-
+        // ===== ИНФОРМАЦИЯ =====
         private void ShowDateTimeInfo()
         {
             try
@@ -1325,8 +1453,7 @@ namespace FlooxOC
             }
         }
 
-        // ====== НАСТРОЙКИ ======
-
+        // ===== НАСТРОЙКИ =====
         private void LoadWallpaperColor()
         {
             try
@@ -1370,73 +1497,6 @@ namespace FlooxOC
             catch { }
         }
 
-        public void ResetIconsToDefault()
-        {
-            List<DesktopIcon> icons = new List<DesktopIcon>();
-            foreach (Control ctrl in desktopPanel.Controls)
-            {
-                if (ctrl is DesktopIcon icon)
-                {
-                    icons.Add(icon);
-                }
-            }
-
-            if (icons.Count == 0)
-            {
-                MessageBox.Show("Нет иконок для расстановки!", "Информация",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            icons.Sort((a, b) =>
-            {
-                if (a.Type == "system" && b.Type != "system") return -1;
-                if (a.Type != "system" && b.Type == "system") return 1;
-                return string.Compare(a.GetText(), b.GetText(), StringComparison.OrdinalIgnoreCase);
-            });
-
-            int x = 20;
-            int y = 20;
-            int spacingX = 95;
-            int spacingY = 85;
-            int maxPerRow = 6;
-
-            foreach (var icon in icons)
-            {
-                icon.Location = new Point(x, y);
-
-                x += spacingX;
-                if (x > maxPerRow * spacingX + 20)
-                {
-                    x = 20;
-                    y += spacingY;
-                }
-            }
-
-            DesktopLayoutManager.SaveCurrentLayout(desktopPanel);
-
-            MessageBox.Show($"✅ Иконки расставлены!\nВсего иконок: {icons.Count}\n" +
-                $"Системных: {icons.FindAll(i => i.Type == "system").Count}\n" +
-                $"Добавленных: {icons.FindAll(i => i.Type != "system").Count}",
-                "Расстановка иконок",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-
-        public void ResetAllSettings()
-        {
-            this.BackColor = Color.FromArgb(0, 128, 128);
-            SaveWallpaperColor(this.BackColor);
-
-            ResetIconsToDefault();
-
-            var layouts = DesktopLayoutManager.GetLayoutsList();
-            foreach (var name in layouts)
-            {
-                DesktopLayoutManager.DeleteBackup(name);
-            }
-        }
-
         private class WallpaperSettings
         {
             public int Wallpaper { get; set; }
@@ -1460,6 +1520,7 @@ namespace FlooxOC
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            SaveDesktopLayout();
             base.OnFormClosing(e);
 
             if (clockTimer != null)

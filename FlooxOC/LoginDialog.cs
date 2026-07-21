@@ -30,8 +30,6 @@ namespace FlooxOC
             this.BackColor = Color.FromArgb(192, 192, 192);
 
             InitializeComponents();
-
-            // Применяем контрастные цвета
             ColorHelper.ApplyContrastToControls(this);
 
             this.Shown += LoginDialog_Shown;
@@ -52,6 +50,9 @@ namespace FlooxOC
                     PerformAutoLogin();
                 }
             }
+
+            // Фокус на поле логина
+            txtLogin.Focus();
         }
 
         private void InitializeComponents()
@@ -79,6 +80,7 @@ namespace FlooxOC
             txtLogin.Location = new Point(140, y);
             txtLogin.Size = new Size(230, 40);
             txtLogin.Font = new Font("Segoe UI", 11);
+            txtLogin.TextChanged += (s, e) => { if (lblStatus.Text.Contains("Ошибка")) lblStatus.Text = ""; };
             this.Controls.Add(txtLogin);
             y += 45;
 
@@ -95,6 +97,7 @@ namespace FlooxOC
             txtPassword.Size = new Size(230, 40);
             txtPassword.Font = new Font("Segoe UI", 11);
             txtPassword.UseSystemPasswordChar = true;
+            txtPassword.TextChanged += (s, e) => { if (lblStatus.Text.Contains("Ошибка")) lblStatus.Text = ""; };
             txtPassword.KeyPress += (s, e) =>
             {
                 if (e.KeyChar == (char)Keys.Enter)
@@ -161,7 +164,7 @@ namespace FlooxOC
             };
             this.Controls.Add(btnRegister);
 
-            // Применяем контрастные цвета ко всем контролам
+            // Применяем контрастные цвета
             ColorHelper.ApplyContrastToControls(this);
         }
 
@@ -172,19 +175,23 @@ namespace FlooxOC
             string login = txtLogin.Text.Trim();
             string password = txtPassword.Text.Trim();
 
+            // Проверка логина
             if (string.IsNullOrEmpty(login))
             {
                 lblStatus.Text = "⚠️ Введите логин!";
                 lblStatus.ForeColor = Color.DarkRed;
+                txtLogin.Focus();
                 return;
             }
 
+            // Проверка пароля (если требуется)
             if (AccountManager.RequirePassword)
             {
                 if (string.IsNullOrEmpty(password))
                 {
                     lblStatus.Text = "⚠️ Введите пароль!";
                     lblStatus.ForeColor = Color.DarkRed;
+                    txtPassword.Focus();
                     return;
                 }
 
@@ -204,6 +211,7 @@ namespace FlooxOC
 
             try
             {
+                // Пытаемся войти
                 if (AccountManager.Login(login, password))
                 {
                     isLoggedIn = true;
@@ -227,6 +235,8 @@ namespace FlooxOC
                         btnLogin.Enabled = false;
                     }
                     lblStatus.ForeColor = Color.DarkRed;
+                    txtPassword.Clear();
+                    txtPassword.Focus();
                 }
             }
             catch (Exception ex)
@@ -277,9 +287,9 @@ namespace FlooxOC
             {
                 try
                 {
-                    if (txtLogin != null) txtLogin.Dispose();
-                    if (txtPassword != null) txtPassword.Dispose();
-                    if (btnLogin != null) btnLogin.Dispose();
+                    txtLogin?.Dispose();
+                    txtPassword?.Dispose();
+                    btnLogin?.Dispose();
                 }
                 catch { }
             }
